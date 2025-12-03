@@ -1,0 +1,7 @@
+{
+  "name": "BlockDAG x1 Main",
+  "description": "A sleek user interface with quick access to Wallet, DeFi, Games, and a multiplier toggle. Designed with a modern, dark theme for a premium user experience.",
+  "requestFramePermissions": [
+    "bluetooth"
+  ]
+}
