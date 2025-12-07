@@ -257,7 +257,7 @@ const Badge: React.FC<{ badge: BadgeType, onClaim: (id: number) => void }> = ({ 
 
 const BadgesView: React.FC<{ badges: BadgeType[], onClaimBadge: (id: number) => void }> = ({ badges, onClaimBadge }) => {
     return (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto animate-fadeIn">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-full mx-auto animate-fadeIn">
             {badges.map(badge => (
                 <Badge key={badge.id} badge={badge} onClaim={onClaimBadge} />
             ))}
@@ -273,18 +273,21 @@ interface NavButtonProps {
     activeColor: string;
 }
 
-const NavButton: React.FC<NavButtonProps> = ({ icon, label, isActive, onClick, activeColor }) => (
-  <button
-    onClick={onClick}
-    className={`flex flex-col items-center justify-center w-full h-16 transition-colors duration-200 ${
-      isActive ? activeColor : 'text-[var(--text-secondary)]'
-    }`}
-    aria-label={label}
-  >
-    {icon}
-    <span className="text-xs mt-1">{label}</span>
-  </button>
-);
+const NavButton: React.FC<NavButtonProps> = ({ icon, label, isActive, onClick, activeColor }) => {
+    const iconElement = React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement, { className: 'w-7 h-7 md:w-6 md:h-6' }) : icon;
+    return (
+        <button
+            onClick={onClick}
+            className={`flex flex-col items-center justify-center w-full h-20 md:h-16 touch-none select-none transition-colors duration-200 ${
+                isActive ? activeColor : 'text-[var(--text-secondary)]'
+            }`}
+            aria-label={label}
+        >
+            {iconElement}
+            <span className="text-xs mt-1">{label}</span>
+        </button>
+    );
+};
 
 const WalletPanel = ({ 
     bdagBalance, 
@@ -683,7 +686,7 @@ const GamesPanel = ({ onOpenCastModal, onOpenGroupModal, onOpenJoustingModal, on
                  </div>
             )}
 
-            <img src="https://storage.googleapis.com/aai-web-samples/apps/web3-wallet/games-illustration.svg" alt="Games Illustration" className="mx-auto mt-8 w-64 h-64" />
+            <img src="/assets/games-illustration.svg" alt="Games Illustration" className="mx-auto mt-8 w-64 h-64" />
         </div>
     );
 };
@@ -697,7 +700,7 @@ const SponsorsPanel = () => (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <a href="https://www.alpinef1.com/" target="_blank" rel="noopener noreferrer" className="relative block group focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-lg overflow-hidden aspect-video">
                     <img 
-                        src="https://i.postimg.cc/NMy20WdM/alpine-blockdag-sponsor.png" 
+                        src="/assets/alpine-blockdag-sponsor.svg" 
                         alt="BWT Alpine F1 Team and BlockDAG Partner" 
                         className="rounded-lg w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
                     />
@@ -708,7 +711,7 @@ const SponsorsPanel = () => (
                 
                 <a href="#" target="_blank" rel="noopener noreferrer" className="relative block group focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-lg overflow-hidden aspect-video">
                     <img 
-                        src="https://i.postimg.cc/13Y7z4Yz/inter-milan-logo.jpg" 
+                        src="/assets/inter-milan-logo.svg" 
                         alt="Inter Milan Partner" 
                         className="rounded-lg w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
                     />
@@ -719,7 +722,7 @@ const SponsorsPanel = () => (
 
                 <a href="#" target="_blank" rel="noopener noreferrer" className="relative block group focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-lg overflow-hidden aspect-video">
                     <img 
-                        src="https://i.postimg.cc/7Zp608bJ/ufc-logo.jpg" 
+                        src="/assets/ufc-logo.svg" 
                         alt="UFC Partner" 
                         className="rounded-lg w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
                     />
@@ -730,7 +733,7 @@ const SponsorsPanel = () => (
             </div>
         </div>
 
-        <img src="https://storage.googleapis.com/aai-web-samples/apps/web3-wallet/sponsors-illustration.svg" alt="Sponsors Illustration" className="mx-auto w-64 h-64 mt-12" />
+        <img src="/assets/sponsors-illustration.svg" alt="Sponsors Illustration" className="mx-auto w-64 h-64 mt-12" />
     </div>
 );
 
@@ -755,7 +758,6 @@ const InventoryPanel = ({ inventory, onEquip, onOpenSmartWatch, connectedWatch, 
         if (val >= t1) return 1;
         return 0;
     };
-
     const calculateIntBonus = () => {
         const task1 = tasks.find(t => t.id === 'daily-game-1')?.isClaimed;
         const task3 = tasks.find(t => t.id === 'daily-game-3')?.isClaimed;
@@ -1464,9 +1466,61 @@ export default function App() {
          setReceipts(prev => [{ id: Date.now().toString(), merchant, amount, date: new Date().toISOString(), items: [] }, ...prev]);
     };
 
+    // BDAG token info - replace `address` with the real deployed token contract address
+    const BDAG_TOKEN = {
+        address: '0x0000000000000000000000000000000000000000', // TODO: replace with real BDAG token address
+        symbol: 'BDAG',
+        decimals: 18,
+        image: '/assets/bdag-token.svg'
+    };
+
+    const addBdagTokenToWallet = async () => {
+        try {
+            if (!window.ethereum) return false;
+            const wasAdded = await window.ethereum.request?.({
+                method: 'wallet_watchAsset',
+                params: {
+                    type: 'ERC20',
+                    options: {
+                        address: BDAG_TOKEN.address,
+                        symbol: BDAG_TOKEN.symbol,
+                        decimals: BDAG_TOKEN.decimals,
+                        image: window.location.origin + BDAG_TOKEN.image,
+                    },
+                },
+            });
+            return !!wasAdded;
+        } catch (err) {
+            console.error('addBdagTokenToWallet error', err);
+            return false;
+        }
+    };
+
     const handleConnectWallet = async () => {
-        setIsConnectingWallet(true);
-        setTimeout(() => { setIsConnectingWallet(false); setWalletAddress("0x123...abc"); }, 1000);
+        setWalletError(null);
+        if (!window.ethereum) {
+            setWalletError('MetaMask not found. Please install the MetaMask browser extension.');
+            return;
+        }
+
+        try {
+            setIsConnectingWallet(true);
+            const accounts: string[] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            if (accounts && accounts.length > 0) {
+                setWalletAddress(accounts[0]);
+                // Prompt to add BDAG token to MetaMask (best-effort)
+                const added = await addBdagTokenToWallet();
+                if (!added) {
+                    // optional: let the user know token add was declined
+                    console.info('BDAG token not added to wallet (user declined or unsupported).');
+                }
+            }
+        } catch (err: any) {
+            console.error('connect wallet error', err);
+            setWalletError(err?.message || 'Failed to connect to wallet');
+        } finally {
+            setIsConnectingWallet(false);
+        }
     };
 
     const handleDisconnectWallet = () => {
@@ -1605,7 +1659,7 @@ export default function App() {
     return (
         <div className="flex flex-col h-screen bg-slate-950 text-white font-sans overflow-hidden">
             {/* Top Bar */}
-            <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 p-4 flex items-center justify-between z-10">
+            <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 p-3 md:p-4 flex items-center justify-between z-10">
                 <div className="relative">
                     <button 
                         onClick={() => setIsPortalMenuOpen(!isPortalMenuOpen)}
@@ -1614,7 +1668,7 @@ export default function App() {
                         <div className="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center border border-cyan-500/50">
                             <BlockDAGIcon className="w-5 h-5 text-cyan-400" />
                         </div>
-                        <h1 className="font-bold text-lg tracking-tight">
+                        <h1 className="font-bold text-base md:text-lg tracking-tight">
                             BlockDAG <span className="text-cyan-400 font-light">Portal {pendingDaoDecisions > 0 && <span className="text-red-400">({pendingDaoDecisions})</span>}</span>
                         </h1>
                     </button>
@@ -1642,7 +1696,9 @@ export default function App() {
 
             {/* Main Content */}
             <main className="flex-grow overflow-y-auto pb-20 scrollbar-hide">
-                {renderActiveView()}
+                <div className="max-w-full w-full px-4 sm:px-6 md:max-w-4xl mx-auto">
+                    {renderActiveView()}
+                </div>
             </main>
 
             {/* Bottom Navigation */}
