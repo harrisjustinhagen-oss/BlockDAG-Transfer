@@ -48,6 +48,9 @@ const MinerCard: React.FC<MinerCardProps> = ({
     setIsEditing(false);
   };
 
+  // Disable AI optimize for lightweight/mobile and X10 home blades
+  const allowOptimize = !(miner.model === 'X1' || miner.model === 'X10-Blade');
+
   return (
     <div className={`bg-[#0f172a] rounded-2xl border border-white/5 p-5 relative overflow-hidden transition-all ${glowClass} ${disabled ? 'opacity-60 grayscale pointer-events-none' : ''}`}>
       {isActive && (
@@ -127,14 +130,21 @@ const MinerCard: React.FC<MinerCardProps> = ({
       <div className="flex gap-2 relative z-10">
         {isActive ? (
           <>
-            <button 
-                onClick={() => onOptimize(miner)}
-                disabled={isOptimizing}
-                className="flex-1 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all group"
-            >
-                {isOptimizing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                {isOptimizing ? 'ANALYZING...' : 'AI OPTIMIZE'}
-            </button>
+            {allowOptimize ? (
+              <button 
+                  onClick={() => onOptimize(miner)}
+                  disabled={isOptimizing}
+                  className="flex-1 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all group"
+              >
+                  {isOptimizing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  {isOptimizing ? 'ANALYZING...' : 'AI OPTIMIZE'}
+              </button>
+            ) : (
+              <div className="flex-1 bg-gray-800/40 rounded-xl border border-white/5 py-2.5 px-4 flex items-center justify-center text-xs text-gray-400 font-bold">
+                AI Optimization Unavailable
+              </div>
+            )}
+
             <div className="px-3 py-2.5 bg-gray-800 rounded-xl border border-white/5 text-gray-400">
                 <Wifi size={16} />
             </div>

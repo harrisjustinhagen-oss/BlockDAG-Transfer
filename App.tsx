@@ -1098,10 +1098,431 @@ const FamilyPackModal = ({ isOpen, onClose, onPlayGame }: { isOpen: boolean; onC
     );
 };
 
-// Placeholder modals to prevent build errors
-const QrPaymentModal = ({ isOpen, onClose, onPayment }: any) => { if(!isOpen) return null; return null; };
-const TransactionsModal = ({ isOpen, onClose, receipts }: any) => { if(!isOpen) return null; return null; };
-const TaxModal = ({ isOpen, onClose, receipts, balance }: any) => { if(!isOpen) return null; return null; };
+// QR / Tap-to-Pay modal
+const QrPaymentModal = ({ isOpen, onClose, onPayment, walletAddress, onConnectWallet, sendBdag }: any) => {
+    const [merchant, setMerchant] = React.useState('');
+    const [amount, setAmount] = React.useState('');
+    const [status, setStatus] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        if (!isOpen) {
+            setMerchant(''); setAmount(''); setStatus(null);
+        }
+    }, [isOpen]);
+
+    if (!isOpen) return null;
+
+    const handlePay = async () => {
+        setStatus('Preparing transaction...');
+        try {
+            if (!walletAddress) {
+                setStatus('Please connect your wallet');
+                return;
+            }
+            // send on-chain transfer
+            setStatus('Sending transaction to MetaMask...');
+            await sendBdag(merchant, amount);
+            setStatus('Transaction confirmed — payment sent');
+            // update app receipts / balances via callback
+            onPayment(parseFloat(amount), merchant || 'Merchant');
+            setTimeout(() => {
+                onClose();
+            }, 1200);
+        } catch (err: any) {
+            setStatus('Payment failed: ' + (err?.message || 'Unknown error'));
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-slate-900 rounded-xl w-full max-w-md p-4" onClick={e => e.stopPropagation()}>
+                <h3 className="text-lg font-bold mb-2">Tap to Pay (BDAG)</h3>
+                <label className="text-xs text-slate-400">Merchant Address</label>
+                <input className="w-full bg-slate-800/60 p-2 rounded mt-1 mb-3" value={merchant} onChange={e => setMerchant(e.target.value)} placeholder="0x..." />
+                <label className="text-xs text-slate-400">Amount (BDAG)</label>
+                <input className="w-full bg-slate-800/60 p-2 rounded mt-1 mb-3" value={amount} onChange={e => setAmount(e.target.value)} placeholder="e.g. 10" type="number" />
+
+                {!walletAddress ? (
+                    <div className="flex gap-2">
+                        <button onClick={onConnectWallet} className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white py-2 rounded">Connect Wallet</button>
+                        <button onClick={onClose} className="flex-1 bg-slate-700 text-white py-2 rounded">Cancel</button>
+                    </div>
+                ) : (
+                    <div className="flex gap-2">
+                        <button onClick={handlePay} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 rounded">Pay {amount || ''} BDAG</button>
+                        <button onClick={onClose} className="flex-1 bg-slate-700 text-white py-2 rounded">Cancel</button>
+                    </div>
+                )}
+
+                {status && <p className="text-sm text-slate-300 mt-3">{status}</p>}
+            </div>
+        </div>
+    );
+};
+const TransactionsModal = ({ isOpen, onClose, receipts }: any) => {
+    const [filterMode, setFilterMode] = React.useState<'all' | 'year' | 'month'>('all');
+    const [selectedYear, setSelectedYear] = React.useState<string>('');
+    const [selectedMonth, setSelectedMonth] = React.useState<string>('');
+
+    React.useEffect(() => {
+        if (!isOpen) {
+            setFilterMode('all');
+            setSelectedYear('');
+            setSelectedMonth('');
+        }
+    }, [isOpen]);
+
+    if (!isOpen) return null;
+
+    const years = Array.from(new Set(receipts.map((r: any) => new Date(r.date).getFullYear()))).sort((a: any, b: any) => b - a);
+    const months = [
+        'January','February','March','April','May','June','July','August','September','October','November','December'
+    ];
+
+    const filtered = receipts.filter((r: any) => {
+        if (filterMode === 'all') return true;
+        const d = new Date(r.date);
+        if (filterMode === 'year') {
+            if (!selectedYear) return true;
+            return String(d.getFullYear()) === selectedYear;
+        }
+        if (filterMode === 'month') {
+            if (!selectedYear && !selectedMonth) return true;
+            const yearMatch = selectedYear ? String(d.getFullYear()) === selectedYear : true;
+            const monthMatch = selectedMonth ? String(d.getMonth()) === selectedMonth : true;
+            return yearMatch && monthMatch;
+        }
+        return true;
+    });
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-start md:items-center justify-center p-4 overflow-auto" onClick={onClose}>
+            <div className="bg-slate-900 rounded-xl w-full max-w-2xl p-4" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-bold">Transactions</h3>
+                    <div className="flex items-center gap-2">
+                        <label className="text-xs text-slate-400">Filter</label>
+                        <select className="bg-slate-800/60 text-sm p-1 rounded" value={filterMode} onChange={e => setFilterMode(e.target.value as any)}>
+                            <option value="all">All time</option>
+                            <option value="year">By year</option>
+                            <option value="month">By month</option>
+                        </select>
+                    </div>
+                </div>
+
+                {filterMode === 'year' && (
+                    <div className="flex gap-2 items-center mb-3">
+                        <label className="text-xs text-slate-400">Year</label>
+                        <select className="bg-slate-800/60 text-sm p-1 rounded" value={selectedYear} onChange={e => setSelectedYear(e.target.value)}>
+                            <option value="">(All years)</option>
+                            {years.map((y: any) => <option key={y} value={String(y)}>{y}</option>)}
+                        </select>
+                    </div>
+                )}
+
+                {filterMode === 'month' && (
+                    <div className="flex gap-2 items-center mb-3">
+                        <label className="text-xs text-slate-400">Month</label>
+                        <select className="bg-slate-800/60 text-sm p-1 rounded" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
+                            <option value="">(All months)</option>
+                            {months.map((m, idx) => <option key={m} value={String(idx)}>{m}</option>)}
+                        </select>
+                        <label className="text-xs text-slate-400">Year</label>
+                        <select className="bg-slate-800/60 text-sm p-1 rounded" value={selectedYear} onChange={e => setSelectedYear(e.target.value)}>
+                            <option value="">(All years)</option>
+                            {years.map((y: any) => <option key={y} value={String(y)}>{y}</option>)}
+                        </select>
+                    </div>
+                )}
+
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-700 rounded">
+                    {filtered.length === 0 ? (
+                        <div className="p-4 text-center text-slate-400">No transactions for selected filter.</div>
+                    ) : filtered.map((r: any) => (
+                        <div key={r.id} className="p-3 flex items-center justify-between">
+                            <div>
+                                <div className="font-semibold text-sm">{r.merchant}</div>
+                                <div className="text-xs text-slate-400">{new Date(r.date).toLocaleString()}</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="font-bold text-white">{r.amount} BDAG</div>
+                                <div className="text-xs text-slate-400">{r.items?.length ? `${r.items.length} items` : ''}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="flex justify-end gap-2 mt-4">
+                    <button onClick={() => { setFilterMode('all'); setSelectedMonth(''); setSelectedYear(''); }} className="px-3 py-1 text-sm bg-slate-800 rounded">Reset</button>
+                    <button onClick={onClose} className="px-4 py-1 bg-cyan-500 text-white rounded">Close</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+const TaxModal = ({ isOpen, onClose, receipts, balance }: any) => {
+    if (!isOpen) return null;
+
+    // Normalize trades from receipts. Expect receipts that represent trades to include:
+    // { id, action: 'buy'|'sell', token: 'BDAG', quantity: number, pricePerUnit: number, date }
+    const trades = (receipts || []).filter((r: any) => r.action === 'buy' || r.action === 'sell');
+
+    // Helper: parse date
+    const toDate = (d: any) => new Date(d);
+
+    // FIFO matching: match sells to earliest unmatched buys
+    type Lot = { qty: number; price: number; date: Date; id?: string };
+    const buyQueue: Lot[] = [];
+    const breakdown: Array<any> = [];
+
+    const sorted = trades.slice().sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    for (const t of sorted) {
+        const date = toDate(t.date);
+        const qty = Number(t.quantity || 0);
+        const price = Number(t.pricePerUnit || 0);
+        if (t.action === 'buy') {
+            if (qty > 0) buyQueue.push({ qty, price, date, id: t.id });
+        } else if (t.action === 'sell') {
+            let remaining = qty;
+            let sellPrice = price;
+            while (remaining > 0 && buyQueue.length > 0) {
+                const lot = buyQueue[0];
+                const matched = Math.min(remaining, lot.qty);
+                const gainPerUnit = sellPrice - lot.price;
+                const gain = gainPerUnit * matched;
+                const holdingDays = Math.floor((date.getTime() - lot.date.getTime()) / (1000 * 60 * 60 * 24));
+                breakdown.push({
+                    sellId: t.id,
+                    buyId: lot.id,
+                    token: t.token || 'BDAG',
+                    qty: matched,
+                    buyPrice: lot.price,
+                    sellPrice: sellPrice,
+                    gain,
+                    holdingDays,
+                    buyDate: lot.date.toISOString(),
+                    sellDate: date.toISOString(),
+                });
+                // consume
+                lot.qty -= matched;
+                if (lot.qty <= 0) buyQueue.shift();
+                remaining -= matched;
+            }
+            // If there are sells without matching buys, record as unmatched (treated as full gain on proceeds)
+            if (remaining > 0) {
+                const gain = sellPrice * remaining; // conservative: assume cost basis 0
+                breakdown.push({
+                    sellId: t.id,
+                    buyId: null,
+                    token: t.token || 'BDAG',
+                    qty: remaining,
+                    buyPrice: 0,
+                    sellPrice: sellPrice,
+                    gain,
+                    holdingDays: 0,
+                    buyDate: null,
+                    sellDate: date.toISOString(),
+                });
+            }
+        }
+    }
+
+    const shortTerm = breakdown.filter(b => b.holdingDays < 365).reduce((s, b) => s + b.gain, 0);
+    const longTerm = breakdown.filter(b => b.holdingDays >= 365).reduce((s, b) => s + b.gain, 0);
+    const totalGain = shortTerm + longTerm;
+
+    const exportCsv = () => {
+        const header = ['sellId','buyId','token','qty','buyPrice','sellPrice','gain','holdingDays','buyDate','sellDate'];
+        const rows = breakdown.map(b => header.map(h => (b[h] ?? '')).join(','));
+        const csv = [header.join(','), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'capital_gains.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    // Tax form generation
+    const [selectedTaxYear, setSelectedTaxYear] = React.useState<string>('');
+    const [showForm, setShowForm] = React.useState(false);
+
+    // Tax rate configuration (percent)
+    const [shortRatePct, setShortRatePct] = React.useState<number>(() => {
+        try { const v = localStorage.getItem('taxRateShort'); return v ? parseFloat(v) : 35; } catch { return 35; }
+    });
+    const [longRatePct, setLongRatePct] = React.useState<number>(() => {
+        try { const v = localStorage.getItem('taxRateLong'); return v ? parseFloat(v) : 15; } catch { return 15; }
+    });
+
+    React.useEffect(() => {
+        try { localStorage.setItem('taxRateShort', String(shortRatePct)); localStorage.setItem('taxRateLong', String(longRatePct)); } catch (e) { /* ignore */ }
+    }, [shortRatePct, longRatePct]);
+
+    const availableYears = Array.from(new Set(breakdown.map((b: any) => new Date(b.sellDate).getFullYear()))).sort((a: any,b:any)=>b-a);
+    React.useEffect(() => {
+        if (!selectedTaxYear && availableYears.length > 0) setSelectedTaxYear(String(availableYears[0]));
+    }, [availableYears]);
+
+    const gainsForYear = (year: string) => breakdown.filter((b: any) => new Date(b.sellDate).getFullYear() === Number(year));
+
+    const buildForm = (year: string) => {
+        const entries = gainsForYear(year);
+        const proceeds = entries.reduce((s:any,e:any)=>s + (e.sellPrice * e.qty), 0);
+        const costBasis = entries.reduce((s:any,e:any)=>s + (e.buyPrice * e.qty), 0);
+        const gainsShort = entries.filter((e:any)=>e.holdingDays<365).reduce((s:any,e:any)=>s+e.gain,0);
+        const gainsLong = entries.filter((e:any)=>e.holdingDays>=365).reduce((s:any,e:any)=>s+e.gain,0);
+        return {
+            taxpayer: walletAddress || username || 'Unknown',
+            taxYear: year,
+            totalProceeds: proceeds,
+            totalCostBasis: costBasis,
+            totalGain: proceeds - costBasis,
+            shortTerm: gainsShort,
+            longTerm: gainsLong,
+            entries
+        };
+    };
+
+    const printForm = (formData: any) => {
+        const w = window.open('', '_blank', 'noopener,noreferrer');
+        if (!w) return;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Mock Tax Form</title><style>body{font-family:Arial,Helvetica,sans-serif;background:#0f1724;color:#e6eef8;padding:24px} .card{background:#0b1220;padding:18px;border-radius:8px} h1{font-size:20px} table{width:100%;border-collapse:collapse} td,th{padding:8px;border-bottom:1px solid #1f2937}</style></head><body><div class="card"><h1>Mock Capital Gains Tax Form - ${formData.taxYear}</h1><p><strong>Taxpayer:</strong> ${formData.taxpayer}</p><table><tr><th>Item</th><th>Value</th></tr><tr><td>Total Proceeds</td><td>${formData.totalProceeds.toFixed(4)} BDAG</td></tr><tr><td>Total Cost Basis</td><td>${formData.totalCostBasis.toFixed(4)} BDAG</td></tr><tr><td>Total Gain</td><td>${formData.totalGain.toFixed(4)} BDAG</td></tr><tr><td>Short-term Gains</td><td>${formData.shortTerm.toFixed(4)} BDAG</td></tr><tr><td>Long-term Gains</td><td>${formData.longTerm.toFixed(4)} BDAG</td></tr></table><h3>Detail</h3><table><tr><th>Qty</th><th>Buy</th><th>Sell</th><th>Gain</th><th>Holding Days</th></tr>${formData.entries.map((e:any)=>`<tr><td>${e.qty}</td><td>${e.buyPrice.toFixed(4)}</td><td>${e.sellPrice.toFixed(4)}</td><td>${e.gain.toFixed(4)}</td><td>${e.holdingDays}</td></tr>`).join('')}</table></div></body></html>`;
+        w.document.write(html);
+        w.document.close();
+        w.focus();
+        w.print();
+    };
+
+    const downloadJson = (formData: any) => {
+        const blob = new Blob([JSON.stringify(formData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `tax_form_${formData.taxYear}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-start md:items-center justify-center p-4 overflow-auto" onClick={onClose}>
+            <div className="bg-slate-900 rounded-xl w-full max-w-3xl p-4" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-bold">Tax Summary</h3>
+                    <div className="flex gap-2">
+                        <button onClick={exportCsv} className="px-3 py-1 bg-slate-800 rounded text-sm">Export CSV</button>
+                        <button onClick={onClose} className="px-3 py-1 bg-cyan-500 rounded text-sm text-white">Close</button>
+                    </div>
+                </div>
+
+                {breakdown.length === 0 ? (
+                    <div className="p-4 text-slate-400">No buy/sell trades found in your transaction history. Add trades with `action: 'buy'|'sell', quantity, pricePerUnit` to receipts for tax calculation.</div>
+                ) : (
+                    <div>
+                        <div className="grid grid-cols-3 gap-4 mb-3">
+                            <div className="bg-slate-800 p-3 rounded">
+                                <div className="text-xs text-slate-400">Short-term Gains</div>
+                                <div className="font-bold text-white">{shortTerm.toFixed(4)} BDAG</div>
+                            </div>
+                            <div className="bg-slate-800 p-3 rounded">
+                                <div className="text-xs text-slate-400">Long-term Gains</div>
+                                <div className="font-bold text-white">{longTerm.toFixed(4)} BDAG</div>
+                            </div>
+                            <div className="bg-slate-800 p-3 rounded">
+                                <div className="text-xs text-slate-400">Total Gain</div>
+                                <div className="font-bold text-white">{totalGain.toFixed(4)} BDAG</div>
+                            </div>
+                        </div>
+
+                        <div className="mb-3 flex items-center gap-2">
+                            <label className="text-xs text-slate-400">Tax Year</label>
+                            <select className="bg-slate-800/60 text-sm p-1 rounded" value={selectedTaxYear} onChange={e=>setSelectedTaxYear(e.target.value)}>
+                                <option value="">(All years summary)</option>
+                                {availableYears.map((y:any)=>(<option key={y} value={String(y)}>{y}</option>))}
+                            </select>
+                            <button className="ml-auto px-3 py-1 bg-emerald-600 rounded text-sm text-white" onClick={()=>{ setShowForm(true); if(!selectedTaxYear && availableYears.length>0) setSelectedTaxYear(String(availableYears[0])); }}>Generate Form</button>
+                        </div>
+
+                        {showForm && (
+                            (() => {
+                                const year = selectedTaxYear || String(availableYears[0] || new Date().getFullYear());
+                                const formData = buildForm(year);
+                                return (
+                                    <div className="bg-slate-800 p-3 rounded mb-3">
+                                        <h4 className="font-bold">Mock Tax Form — {formData.taxYear}</h4>
+                                        <div className="grid grid-cols-2 gap-4 mt-2">
+                                            <div>
+                                                <div className="text-xs text-slate-400">Taxpayer</div>
+                                                <div className="font-semibold">{formData.taxpayer}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-slate-400">Reporting Year</div>
+                                                <div className="font-semibold">{formData.taxYear}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-slate-400">Total Proceeds</div>
+                                                <div className="font-semibold">{formData.totalProceeds.toFixed(4)} BDAG</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-slate-400">Total Cost Basis</div>
+                                                <div className="font-semibold">{formData.totalCostBasis.toFixed(4)} BDAG</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-slate-400">Short-term Gain</div>
+                                                <div className="font-semibold">{formData.shortTerm.toFixed(4)} BDAG</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-slate-400">Long-term Gain</div>
+                                                <div className="font-semibold">{formData.longTerm.toFixed(4)} BDAG</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-3 grid grid-cols-3 gap-3 items-end">
+                                            <div>
+                                                <div className="text-xs text-slate-400">Short-term tax rate (%)</div>
+                                                <input type="number" min="0" step="0.1" className="w-full bg-slate-700 p-1 rounded mt-1 text-sm" value={shortRatePct} onChange={e=>setShortRatePct(parseFloat(e.target.value||'0'))} />
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-slate-400">Long-term tax rate (%)</div>
+                                                <input type="number" min="0" step="0.1" className="w-full bg-slate-700 p-1 rounded mt-1 text-sm" value={longRatePct} onChange={e=>setLongRatePct(parseFloat(e.target.value||'0'))} />
+                                            </div>
+                                            <div className="bg-slate-900 p-2 rounded">
+                                                <div className="text-xs text-slate-400">Estimated Tax Due</div>
+                                                <div className="font-bold">{((formData.shortTerm * (shortRatePct/100)) + (formData.longTerm * (longRatePct/100))).toFixed(4)} BDAG</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-2 justify-end mt-3">
+                                            <button onClick={()=>printForm(formData)} className="px-3 py-1 bg-blue-600 rounded text-sm text-white">Print Form</button>
+                                            <button onClick={()=>downloadJson(formData)} className="px-3 py-1 bg-slate-700 rounded text-sm">Download JSON</button>
+                                        </div>
+                                    </div>
+                                );
+                            })()
+                        )}
+
+                        <div className="max-h-80 overflow-y-auto divide-y divide-slate-700 rounded">
+                            {breakdown.map((b, idx) => (
+                                <div key={idx} className="p-3 flex items-center justify-between">
+                                    <div>
+                                        <div className="font-semibold text-sm">{b.token} — {b.qty} units</div>
+                                        <div className="text-xs text-slate-400">Bought: {b.buyDate ? new Date(b.buyDate).toLocaleDateString() : '—'} • Sold: {new Date(b.sellDate).toLocaleDateString()}</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-sm">Gain: <span className="font-bold">{b.gain.toFixed(4)} BDAG</span></div>
+                                        <div className="text-xs text-slate-400">Holding: {b.holdingDays} days</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 const DAOModal = ({ isOpen, onClose, isPremium }: any) => { if(!isOpen) return null; return null; };
 const JoustingModeModal = ({ isOpen, onClose }: any) => { if(!isOpen) return null; return null; };
 const LevelRewardsModal = ({ isOpen, onClose, currentLevel }: any) => { if(!isOpen) return null; return null; };
@@ -1369,10 +1790,26 @@ export default function App() {
         { id: 5, name: "Eve", status: 'online', isBlockdagFriend: false },
     ]);
 
-    const [receipts, setReceipts] = useState<Receipt[]>([
-        { id: '1', merchant: 'Star Coffee', amount: 15.50, date: new Date().toISOString(), items: [] },
-        { id: '2', merchant: 'Game Store', amount: 59.99, date: new Date(Date.now() - 86400000).toISOString(), items: [] },
-    ]);
+    const [receipts, setReceipts] = useState<Receipt[]>(() => {
+        try {
+            const raw = localStorage.getItem('receipts');
+            if (raw) return JSON.parse(raw) as Receipt[];
+        } catch (e) {
+            console.error('Failed to parse receipts from localStorage', e);
+        }
+        return [
+            { id: '1', merchant: 'Star Coffee', amount: 15.5, date: new Date().toISOString(), items: [] },
+            { id: '2', merchant: 'Game Store', amount: 59.99, date: new Date(Date.now() - 86400000).toISOString(), items: [] },
+        ];
+    });
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('receipts', JSON.stringify(receipts));
+        } catch (e) {
+            console.error('Failed to save receipts to localStorage', e);
+        }
+    }, [receipts]);
 
     const [claimedXpInfo, setClaimedXpInfo] = useState<{ taskId: string; xp: number } | null>(null);
 
@@ -1493,6 +1930,27 @@ export default function App() {
         } catch (err) {
             console.error('addBdagTokenToWallet error', err);
             return false;
+        }
+    };
+
+    const sendBdagOnChain = async (to: string, amount: string) => {
+        if (!window.ethereum) throw new Error('No wallet available');
+        if (!BDAG_TOKEN.address || BDAG_TOKEN.address === '0x0000000000000000000000000000000000000000') throw new Error('BDAG token address not configured');
+        try {
+            const { ethers } = await import('ethers');
+            const provider = new ethers.BrowserProvider(window.ethereum as any);
+            const signer = await provider.getSigner();
+            const erc20Abi = [
+                'function transfer(address to, uint256 amount) returns (bool)'
+            ];
+            const contract = new ethers.Contract(BDAG_TOKEN.address, erc20Abi, signer);
+            const value = ethers.parseUnits(amount.toString(), BDAG_TOKEN.decimals);
+            const tx = await contract.transfer(to, value);
+            await tx.wait();
+            return tx;
+        } catch (err) {
+            console.error('sendBdagOnChain error', err);
+            throw err;
         }
     };
 
@@ -1752,7 +2210,7 @@ export default function App() {
             {/* Modals */}
             <TransactionsModal isOpen={showTransactions} onClose={() => setShowTransactions(false)} receipts={receipts} />
             <TaxModal isOpen={showTaxes} onClose={() => setShowTaxes(false)} receipts={receipts} balance={bdagBalance} />
-            <QrPaymentModal isOpen={showTapToPay} onClose={() => setShowTapToPay(false)} onPayment={handlePayment} />
+            <QrPaymentModal isOpen={showTapToPay} onClose={() => setShowTapToPay(false)} onPayment={handlePayment} walletAddress={walletAddress} onConnectWallet={handleConnectWallet} sendBdag={sendBdagOnChain} />
             <MiningModal isOpen={showMining} onClose={() => setShowMining(false)} isPremium={isPremium} />
             <RaffleModal 
                 isOpen={showRaffle} 
