@@ -135,7 +135,7 @@ const AsicListRow: React.FC<{
 
 const MiningApp: React.FC = () => {
   const [miners, setMiners] = useState<Miner[]>(INITIAL_MINERS);
-  const [chartData, setChartData] = useState<Array<{ time: string; value: number }>>([]);
+  const [chartData, setChartData] = useState<Array<{ time: string; total: number; x30: number; x100: number; power: number; activeUnits: number }>>([]);
   const [optimizingId, setOptimizingId] = useState<string | null>(null);
   const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
   const [showResultModal, setShowResultModal] = useState(false);
@@ -148,6 +148,7 @@ const MiningApp: React.FC = () => {
   const [showAd, setShowAd] = useState(false);
   const [adSeconds, setAdSeconds] = useState(5);
   const [isPremium, setIsPremium] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   // Add Device State
   const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
@@ -161,11 +162,29 @@ const MiningApp: React.FC = () => {
 
   // Notification State
   const [notification, setNotification] = useState<{title: string, message: string} | null>(null);
+  
+  // Electricity Cost State
+  const [electricityCost, setElectricityCost] = useState<number>(0.12); // Default $0.12 per kWh
+  const [showCostModal, setShowCostModal] = useState(false);
+  const [tempCost, setTempCost] = useState<string>('0.12');
+
+  // Overheat Tracking State (prevents notification spam)
+  const overheatNotifiedRef = useRef<Set<string>>(new Set());
+  
+  // Temperature thresholds for ASICs
+  const OVERHEAT_THRESHOLD = 88; // °C - critical temperature for ASICs
 
   const sendNotification = (title: string, message: string) => {
     // In-App Toast
     setNotification({ title, message });
     setTimeout(() => setNotification(null), 6000);
+  };
+
+  const handleActivatePremium = (plan: 'monthly' | 'annual') => {
+    setIsPremium(true);
+    setShowPremiumModal(false);
+    const perk = plan === 'annual' ? 'Annual: save 2 months + priority feature access.' : 'Monthly: cancel anytime.';
+    sendNotification('Premium Unlocked', `${plan === 'annual' ? '$100/yr' : '$10/mo'} — ${perk}`);
   };
 
   // Helper to format remaining time
@@ -189,6 +208,8 @@ const MiningApp: React.FC = () => {
 
       setMiners(prevMiners => {
         let totalHashrate = 0;
+        let x30Hashrate = 0;
+        let x100Hashrate = 0;
         let notificationTriggered = false;
 
         const updatedMiners = prevMiners.map(miner => {
@@ -235,9 +256,33 @@ const MiningApp: React.FC = () => {
             if (newTemp < 60) newTemp += 1.5;
             if (newTemp > 85) newTemp -= 1.5;
 
+            // Overheat detection for ASICs (X30 and X100)
+            if ((miner.model === 'X30-Core' || miner.model === 'X100-Mainframe') && newTemp >= OVERHEAT_THRESHOLD) {
+              if (!overheatNotifiedRef.current.has(miner.id)) {
+                overheatNotifiedRef.current.add(miner.id);
+                notificationTriggered = true;
+                // Store the overheating miner info for notification
+                setTimeout(() => {
+                  sendNotification(
+                    "⚠️ ASIC Overheating",
+                    `${miner.name} (${miner.model}) has reached critical temperature: ${newTemp.toFixed(1)}°C. Reduce load or improve cooling immediately.`
+                  );
+                }, 0);
+              }
+            } else if (newTemp < OVERHEAT_THRESHOLD - 5) {
+              // Clear notification flag when temp drops below threshold by 5°C
+              overheatNotifiedRef.current.delete(miner.id);
+            }
+
             // Only add to Total Hashrate if it's not using BDAG/h (X10 uses BDAG/h)
             if (miner.hashrateUnit !== 'BDAG/h') {
               totalHashrate += newHash;
+              // Track X30 and X100 separately
+              if (miner.model === 'X30-Core') {
+                x30Hashrate += newHash;
+              } else if (miner.model === 'X100-Mainframe') {
+                x100Hashrate += newHash;
+              }
             }
 
             return {
@@ -267,7 +312,16 @@ const MiningApp: React.FC = () => {
 
         // Update chart data
         setChartData(prev => {
-          const newData = [...prev, { time: timeString, value: Math.floor(totalHashrate) }];
+          const totalPower = updatedMiners.reduce((acc, m) => acc + m.powerUsage, 0);
+          const activeCount = updatedMiners.filter(m => m.status === MinerStatus.MINING).length;
+          const newData = [...prev, { 
+            time: timeString, 
+            total: Math.floor(totalHashrate),
+            x30: Math.floor(x30Hashrate),
+            x100: Math.floor(x100Hashrate),
+            power: totalPower,
+            activeUnits: activeCount
+          }];
           if (newData.length > 20) newData.shift();
           return newData;
         });
@@ -360,6 +414,12 @@ const MiningApp: React.FC = () => {
         }
     }
 
+    // ASICs require premium, not X1
+    if (['X30-Core', 'X100-Mainframe'].includes(miner.model) && !isPremium) {
+      sendNotification("Premium Required", "ASIC miners require Premium subscription to operate.");
+      return;
+    }
+
     toggleMiner(id);
   };
 
@@ -431,6 +491,7 @@ const MiningApp: React.FC = () => {
     return acc + m.hashrate;
   }, 0);
   
+  const totalPower = miners.reduce((acc, m) => acc + m.powerUsage, 0);
   const activeUnits = miners.filter(m => m.status === MinerStatus.MINING).length;
   const x1IsActive = internalMiner?.status === MinerStatus.MINING;
 
@@ -489,6 +550,65 @@ const MiningApp: React.FC = () => {
         </div>
       )}
 
+      {/* Premium Modal */}
+      {showPremiumModal && (
+        <div className="fixed inset-0 z-[210] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-amber-500/20 rounded-2xl shadow-2xl max-w-lg w-full p-6 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-cyan-500/5 pointer-events-none" />
+            <div className="flex items-center justify-between mb-3 relative z-10">
+              <div>
+                <p className="text-xs text-amber-400 font-bold uppercase tracking-[0.2em]">Premium Access</p>
+                <h3 className="text-2xl font-bold text-white">Unlock the full X Series</h3>
+                <p className="text-sm text-slate-300">$10/mo or $100/yr (2 months free)</p>
+              </div>
+              <button onClick={() => setShowPremiumModal(false)} className="text-slate-500 hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 relative z-10">
+              {[ 
+                'Start all in X Series X10',
+                'Remote mining software for X30 / X100',
+                'Craft Legendary Templates to sell for BDAG',
+                'No ads — uninterrupted sessions',
+                'Premium leveling rewards (exclusive)',
+                'Vote in DAO decisions'
+              ].map(item => (
+                <div key={item} className="flex items-start gap-2 bg-slate-800/60 border border-white/5 rounded-lg p-3">
+                  <span className="mt-0.5 text-emerald-400">•</span>
+                  <p className="text-sm text-slate-100 leading-tight">{item}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-slate-800/60 border border-amber-500/20 rounded-xl p-4 mb-4 relative z-10">
+              <p className="text-sm text-white font-semibold mb-2">Incentives to upgrade</p>
+              <ul className="text-sm text-slate-200 space-y-1 list-disc list-inside">
+                <li>Annual plan saves $20 vs monthly (effectively 2 free months).</li>
+                <li>Priority access to new firmware, templates, and DAO votes.</li>
+                <li>Bonus BDAG drop for Premium streaks and referral boosts.</li>
+              </ul>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 relative z-10">
+              <button
+                onClick={() => handleActivatePremium('monthly')}
+                className="flex-1 px-4 py-3 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold shadow-lg shadow-cyan-500/30 transition-colors"
+              >
+                Activate $10/mo
+              </button>
+              <button
+                onClick={() => handleActivatePremium('annual')}
+                className="flex-1 px-4 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-lg shadow-amber-500/30 transition-colors"
+              >
+                Activate $100/yr (best value)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-md border-b border-white/5 px-6 py-4 flex justify-between items-center">
         <div>
@@ -499,28 +619,99 @@ const MiningApp: React.FC = () => {
         </div>
         <div className="flex gap-4 items-center">
           <button 
-            onClick={() => setIsPremium(!isPremium)}
+            onClick={() => setShowPremiumModal(true)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${isPremium ? 'bg-amber-500/10 text-amber-500 border-amber-500/30' : 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white'}`}
           >
             <Crown size={14} className={isPremium ? 'fill-amber-500' : ''} />
-            {isPremium ? 'PREMIUM' : 'FREE'}
+            {isPremium ? 'PREMIUM' : 'GET PREMIUM'}
           </button>
         </div>
       </header>
 
       <main className="px-4 pt-6 max-w-lg mx-auto">
         {/* Global Status Badge */}
-        <div className="flex gap-4 mb-6">
-          <div className="flex-1 bg-gradient-to-br from-slate-900 to-slate-950 p-4 rounded-2xl border border-white/5">
-             <div className="text-gray-400 text-xs font-bold mb-1">NETWORK HASHRATE</div>
-             <div className="text-2xl font-mono font-bold text-white tracking-tight">
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="flex-1 bg-gradient-to-br from-slate-900 to-slate-950 p-4 rounded-2xl border border-white/5 relative overflow-hidden">
+             <div className="text-gray-400 text-xs font-bold mb-1 relative z-10">NETWORK HASHRATE</div>
+             <div className="text-2xl font-mono font-bold text-white tracking-tight relative z-10">
                {totalHash.toFixed(1)} <span className="text-sm text-gray-500">TH/s</span>
+             </div>
+             {/* Mini Sparkline Graph */}
+             <div className="relative h-10 flex items-end gap-[2px] mt-2 bg-black/20 rounded-lg p-1">
+               {chartData.length >= 2 ? (
+                 <>
+                   {chartData.slice(-15).map((point, i) => {
+                     const maxInView = Math.max(...chartData.slice(-15).map(d => d.total), 1);
+                     const height = (point.total / maxInView) * 100;
+                     return (
+                       <div 
+                         key={i}
+                         className="flex-1 bg-gradient-to-t from-cyan-600 to-cyan-400 rounded-sm transition-all duration-300"
+                         style={{ height: `${Math.max(height, 10)}%` }}
+                       ></div>
+                     );
+                   })}
+                 </>
+               ) : (
+                 <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-600">
+                   Collecting data...
+                 </div>
+               )}
              </div>
           </div>
           <div className="flex-1 bg-gradient-to-br from-slate-900 to-slate-950 p-4 rounded-2xl border border-white/5">
              <div className="text-gray-400 text-xs font-bold mb-1">ACTIVE UNITS</div>
              <div className="text-2xl font-mono font-bold text-white tracking-tight">
                {activeUnits}<span className="text-gray-600">/</span>{miners.length}
+             </div>
+          </div>
+          <div className="flex-1 bg-gradient-to-br from-slate-900 to-slate-950 rounded-2xl border border-white/5 relative overflow-hidden">
+             {/* Content */}
+             <div className="p-4 flex flex-col h-full">
+               <div className="text-gray-400 text-xs font-bold mb-1">POWER USAGE</div>
+               <div className="text-2xl font-mono font-bold text-white tracking-tight">
+                 {totalPower.toLocaleString()} <span className="text-sm text-gray-500">W</span>
+               </div>
+               
+               {/* Profit/Day Section */}
+               <div className="mt-auto pt-2 border-t border-white/5 flex items-center justify-between">
+                 <div>
+                   <div className="text-[9px] text-gray-500 uppercase font-bold">Profit/Day</div>
+                   <div className="text-sm font-bold text-green-400">
+                     {(() => {
+                       // Calculate total BDAG mined per day using fixed rates from MODEL_SPECS
+                       const activeMining = miners.filter(m => m.status === MinerStatus.MINING);
+                       const bdagPerDay = activeMining.reduce((acc, m) => {
+                         const specs = MODEL_SPECS[m.model];
+                         return acc + (specs?.bdagPerDay || 0);
+                       }, 0);
+                       
+                       // Calculate revenue from BDAG at $0.05
+                       const revenue = bdagPerDay * 0.05;
+                       
+                       // Calculate electricity cost (power in W -> kW, * 24h, * cost per kWh)
+                       const powerCost = (totalPower / 1000) * 24 * electricityCost;
+                       
+                       // Calculate profit
+                       const profit = revenue - powerCost;
+                       
+                       return profit >= 0 
+                         ? `+$${profit.toFixed(2)}`
+                         : `-$${Math.abs(profit).toFixed(2)}`;
+                     })()}
+                   </div>
+                 </div>
+                 <button 
+                   onClick={() => {
+                     setTempCost(electricityCost.toString());
+                     setShowCostModal(true);
+                   }}
+                   className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
+                   title="Set electricity cost"
+                 >
+                   <Zap size={16} className="text-amber-500 group-hover:text-amber-400" />
+                 </button>
+               </div>
              </div>
           </div>
         </div>
@@ -871,6 +1062,63 @@ const MiningApp: React.FC = () => {
             >
               APPLY NEW CONFIGURATION
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Electricity Cost Modal */}
+      {showCostModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-white/10 p-0 shadow-2xl overflow-hidden relative">
+            <div className="bg-gradient-to-r from-amber-900/50 to-slate-900 p-6 border-b border-white/5 relative">
+              <button 
+                onClick={() => setShowCostModal(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-amber-500 p-2 rounded-lg text-white">
+                  <Zap size={24} />
+                </div>
+                <h3 className="text-xl font-bold text-white">Electricity Cost</h3>
+              </div>
+              <p className="text-sm text-gray-400">Set your cost per kilowatt-hour</p>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-6">
+                <label className="text-xs text-gray-400 uppercase font-bold block mb-2">Cost per kWh ($)</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">$</span>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={tempCost}
+                    onChange={(e) => setTempCost(e.target.value)}
+                    className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 pl-8 py-3 text-white font-mono text-lg focus:outline-none focus:border-amber-500 transition-colors"
+                    placeholder="0.12"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Average US rate: $0.12/kWh</p>
+              </div>
+
+              <button 
+                onClick={() => {
+                  const cost = parseFloat(tempCost);
+                  if (!isNaN(cost) && cost >= 0) {
+                    setElectricityCost(cost);
+                    setShowCostModal(false);
+                    sendNotification("Cost Updated", `Electricity cost set to $${cost.toFixed(3)}/kWh`);
+                  }
+                }}
+                className="w-full py-3 rounded-xl font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-[0_0_20px_rgba(251,191,36,0.3)] transition-all flex items-center justify-center gap-2"
+              >
+                <Zap size={20} />
+                SAVE COST
+              </button>
+            </div>
           </div>
         </div>
       )}

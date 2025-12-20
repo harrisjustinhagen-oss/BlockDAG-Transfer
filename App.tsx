@@ -38,6 +38,9 @@ import { RaffleIcon } from './components/icons/RaffleIcon';
 import { XSeriesIcon } from './components/icons/XSeriesIcon';
 import { PastPurchasesIcon } from './components/icons/PastPurchasesIcon';
 import { PaymentSuccessIcon } from './components/icons/PaymentSuccessIcon';
+import CityBldrModal from './components/games/citybldr/CityBldrModal';
+import CityBuilderGame from './components/games/citybldr/CityBuilderGame';
+import GroupSlots from './components/profile/GroupSlots';
 import { ClipboardIcon } from './components/icons/ClipboardIcon';
 import { ArrowDownTrayIcon } from './components/icons/ArrowDownTrayIcon';
 import { LockIcon } from './components/icons/LockIcon';
@@ -130,29 +133,35 @@ const InventorySlot: React.FC<{ item: (InventoryItem | TemplateItem) | null }> =
 
     const isEquipmentWithRarity = item && item.type === 'equipment' && 'rarity' in item && item.rarity;
     const isUniversal = item && item.type === 'universal';
-    
-    const borderColorClass = isEquipmentWithRarity 
-        ? rarityBorderColors[item.rarity as keyof typeof rarityBorderColors] 
-        : isUniversal 
-            ? 'border-purple-400 shadow-[0_0_10px_rgba(192,132,252,0.3)]' 
+
+    const borderColorClass = isEquipmentWithRarity
+        ? rarityBorderColors[item.rarity as keyof typeof rarityBorderColors]
+        : isUniversal
+            ? 'border-purple-400 shadow-[0_0_10px_rgba(192,132,252,0.3)]'
             : 'border-[var(--border-interactive)]';
 
+    const iconElement = item ? React.cloneElement(item.icon, { className: 'w-8 h-8 text-teal-300' }) : null;
+
     return (
-        <div className={`aspect-square rounded-lg flex flex-col items-center justify-center p-2 text-center transition-colors relative ${
-            item ? `bg-slate-700/50 bg-opacity-50 border cursor-pointer hover:bg-slate-700 ${borderColorClass}` : 'bg-slate-900/50 border-2 border-dashed border-[var(--border-interactive)] opacity-50'
-        }`}>
+        <div
+            className={`aspect-square rounded-lg flex flex-col items-center justify-center p-2 text-center transition-colors relative ${
+                item
+                    ? `bg-slate-700/50 bg-opacity-50 border cursor-pointer hover:bg-slate-700 ${borderColorClass}`
+                    : 'bg-slate-900/50 border-2 border-dashed border-[var(--border-interactive)] opacity-50'
+            }`}
+        >
             {item ? (
                 <>
-                    {React.cloneElement(item.icon, { className: item.icon.props.className || 'w-10 h-10' })}
-                    <span className="text-xs font-semibold text-[var(--text-primary)] mt-1 truncate w-full">{item.name}</span>
-                    {item.quantity > 1 && (
-                        <span className="absolute bottom-1 right-1 text-xs font-mono bg-slate-800 text-white px-1.5 py-0.5 rounded">
-                            {item.quantity}
-                        </span>
-                    )}
+                    <div className="flex items-center justify-center w-10 h-10 text-teal-300">
+                        {iconElement}
+                    </div>
+                    <div className="mt-2 text-xs font-semibold text-[var(--text-primary)] leading-tight text-center break-words">
+                        {item.name}
+                    </div>
+                    <div className="text-[10px] text-[var(--text-secondary)]">x{item.quantity}</div>
                 </>
             ) : (
-                <div />
+                <span className="text-[10px] text-[var(--text-secondary)]">Empty</span>
             )}
         </div>
     );
@@ -535,8 +544,8 @@ const AppsPanel = ({ onOpenRaffle, onOpenMining }: { onOpenRaffle: () => void, o
     );
 };
 
-const GamesPanel = ({ onOpenCastModal, onOpenGroupModal, onOpenJoustingModal, onOpenHeartsGame, onOpenTriviaGame, onOpenFamilyPack }: any) => {
-    const [activeTab, setActiveTab] = useState<'freeToPlay' | 'purchased'>('freeToPlay');
+const GamesPanel = ({ onOpenCastModal, onOpenGroupModal, onOpenJoustingModal, onOpenHeartsGame, onOpenTriviaGame, onOpenFamilyPack, onOpenCityBldr }: any) => {
+    const [activeTab, setActiveTab] = useState<'freeToPlay' | 'purchased' | 'trending'>('freeToPlay');
 
     const purchasedGames = [
         {
@@ -569,6 +578,90 @@ const GamesPanel = ({ onOpenCastModal, onOpenGroupModal, onOpenJoustingModal, on
                 </button>
             </div>
 
+            {/* City BLDR - Large Rectangle with Cityscape Background */}
+            <div className="mb-8 max-w-4xl mx-auto">
+                <button 
+                    onClick={() => { if (typeof onOpenCityBldr === 'function') onOpenCityBldr(); }} 
+                    className="w-full h-32 relative overflow-hidden rounded-xl shadow-2xl hover:shadow-cyan-500/50 transition-all hover:scale-[1.02] group"
+                >
+                    {/* Animated Cityscape Background */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-cyan-900/40 to-cyan-700">
+                        {/* Sky with gradient */}
+                        <div className="absolute inset-0 bg-gradient-to-b from-orange-400/30 via-purple-500/20 to-transparent"></div>
+                        
+                        {/* Skyscrapers */}
+                        <div className="absolute bottom-0 left-0 right-0 flex items-end justify-center gap-1 px-4">
+                            {/* Building 1 */}
+                            <div className="w-12 h-20 bg-slate-800 relative border-t-2 border-cyan-400/50 group-hover:h-24 transition-all">
+                                <div className="absolute top-2 left-1 right-1 grid grid-cols-2 gap-[2px]">
+                                    <div className="w-2 h-2 bg-yellow-300/80"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/80"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/60"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/80"></div>
+                                </div>
+                            </div>
+                            
+                            {/* Building 2 - Tallest */}
+                            <div className="w-16 h-28 bg-slate-700 relative border-t-2 border-cyan-400 group-hover:h-32 transition-all">
+                                <div className="absolute top-1 w-full">
+                                    <div className="w-4 h-4 bg-cyan-400 mx-auto animate-pulse"></div>
+                                </div>
+                                <div className="absolute top-6 left-1 right-1 grid grid-cols-3 gap-[2px]">
+                                    <div className="w-2 h-2 bg-yellow-300/80"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/90"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/80"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/70"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/80"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/90"></div>
+                                </div>
+                            </div>
+                            
+                            {/* Building 3 */}
+                            <div className="w-14 h-24 bg-slate-800 relative border-t-2 border-cyan-400/50 group-hover:h-28 transition-all">
+                                <div className="absolute top-3 left-1 right-1 grid grid-cols-2 gap-[2px]">
+                                    <div className="w-2 h-2 bg-yellow-300/80"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/70"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/90"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/80"></div>
+                                </div>
+                            </div>
+                            
+                            {/* Building 4 */}
+                            <div className="w-10 h-16 bg-slate-900 relative border-t-2 border-cyan-400/40 group-hover:h-20 transition-all">
+                                <div className="absolute top-2 left-1 right-1 grid grid-cols-2 gap-[2px]">
+                                    <div className="w-2 h-2 bg-yellow-300/70"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/80"></div>
+                                </div>
+                            </div>
+                            
+                            {/* Building 5 */}
+                            <div className="w-12 h-22 bg-slate-800 relative border-t-2 border-cyan-400/50 group-hover:h-26 transition-all">
+                                <div className="absolute top-3 left-1 right-1 grid grid-cols-2 gap-[2px]">
+                                    <div className="w-2 h-2 bg-yellow-300/80"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/80"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/70"></div>
+                                    <div className="w-2 h-2 bg-yellow-300/90"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Content Overlay */}
+                    <div className="relative z-10 h-full flex items-center justify-between px-8">
+                        <div className="flex items-center gap-4">
+                            <CityIcon className="w-12 h-12 text-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.7)]" />
+                            <div className="text-left">
+                                <div className="text-3xl font-bold text-white drop-shadow-lg">City BLDR</div>
+                                <div className="text-sm text-cyan-200">Build your metropolis</div>
+                            </div>
+                        </div>
+                        <div className="text-cyan-300 text-2xl font-bold animate-pulse">▶</div>
+                    </div>
+                </button>
+            </div>
+
+            <div className="border-b border-[var(--border-color)] mb-8 max-w-4xl mx-auto"></div>
+
             <div className="flex justify-center border-b border-[var(--border-color)] mb-8 max-w-4xl mx-auto">
                 <button
                     onClick={() => setActiveTab('freeToPlay')}
@@ -581,6 +674,12 @@ const GamesPanel = ({ onOpenCastModal, onOpenGroupModal, onOpenJoustingModal, on
                     className={`px-6 py-2 font-semibold transition-colors ${activeTab === 'purchased' ? 'text-orange-400 border-b-2 border-orange-400' : 'text-[var(--text-secondary)]'}`}
                 >
                     Purchased
+                </button>
+                <button
+                    onClick={() => setActiveTab('trending')}
+                    className={`px-6 py-2 font-semibold transition-colors ${activeTab === 'trending' ? 'text-orange-400 border-b-2 border-orange-400' : 'text-[var(--text-secondary)]'}`}
+                >
+                    Trending
                 </button>
             </div>
 
@@ -598,6 +697,23 @@ const GamesPanel = ({ onOpenCastModal, onOpenGroupModal, onOpenJoustingModal, on
                             <button
                                 onClick={onOpenFamilyPack}
                                 className="w-full px-6 py-3 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition-colors"
+                            >
+                                Open Pack
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-[var(--bg-panel)] rounded-lg p-6 backdrop-blur-sm text-left">
+                        <div className="flex items-center gap-4">
+                            <UsersIcon className="w-16 h-16 text-purple-400 flex-shrink-0" />
+                            <div>
+                                <h3 className="text-xl font-bold text-[var(--text-primary)]">Community Pack</h3>
+                                <p className="text-sm text-[var(--text-secondary)]">Games created and shared by the BlockDAG community.</p>
+                            </div>
+                        </div>
+                        <div className="mt-4 text-center">
+                            <button
+                                className="w-full px-6 py-3 bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-colors"
                             >
                                 Open Pack
                             </button>
@@ -685,6 +801,137 @@ const GamesPanel = ({ onOpenCastModal, onOpenGroupModal, onOpenJoustingModal, on
                     </div>
                  </div>
             )}
+            {activeTab === 'trending' && (
+                <div className="max-w-4xl mx-auto animate-fadeIn">
+                    <p className="text-[var(--text-secondary)] mb-6">Most popular games based on community likes.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="bg-[var(--bg-panel)] rounded-lg p-6 backdrop-blur-sm text-left">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-2xl font-bold text-yellow-400">#1</span>
+                                <div className="flex items-center gap-1 text-rose-400">
+                                    <HeartIcon className="w-5 h-5 fill-current" />
+                                    <span className="font-bold">12.4K</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <JoustingIcon className="w-16 h-16 text-orange-400 flex-shrink-0" />
+                                <div>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)]">Jousting Champions</h3>
+                                    <p className="text-sm text-[var(--text-secondary)]">Medieval combat at its finest!</p>
+                                </div>
+                            </div>
+                            <div className="mt-4">
+                                <button
+                                    onClick={onOpenJoustingModal}
+                                    className="w-full px-6 py-3 bg-orange-500 text-white font-semibold rounded-lg shadow-md hover:bg-orange-600 transition-colors"
+                                >
+                                    Play Now
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="bg-[var(--bg-panel)] rounded-lg p-6 backdrop-blur-sm text-left">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-2xl font-bold text-gray-400">#2</span>
+                                <div className="flex items-center gap-1 text-rose-400">
+                                    <HeartIcon className="w-5 h-5 fill-current" />
+                                    <span className="font-bold">9.8K</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <CityIcon className="w-16 h-16 text-cyan-400 flex-shrink-0" />
+                                <div>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)]">City BLDR</h3>
+                                    <p className="text-sm text-[var(--text-secondary)]">Build your metropolis!</p>
+                                </div>
+                            </div>
+                            <div className="mt-4">
+                                <button
+                                    onClick={onOpenCityBldr}
+                                    className="w-full px-6 py-3 bg-cyan-500 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-600 transition-colors"
+                                >
+                                    Play Now
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="bg-[var(--bg-panel)] rounded-lg p-6 backdrop-blur-sm text-left">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-2xl font-bold text-amber-600">#3</span>
+                                <div className="flex items-center gap-1 text-rose-400">
+                                    <HeartIcon className="w-5 h-5 fill-current" />
+                                    <span className="font-bold">8.2K</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <HeartIcon className="w-16 h-16 text-rose-400 flex-shrink-0" />
+                                <div>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)]">Hearts</h3>
+                                    <p className="text-sm text-[var(--text-secondary)]">Classic card game strategy!</p>
+                                </div>
+                            </div>
+                            <div className="mt-4">
+                                <button
+                                    onClick={onOpenHeartsGame}
+                                    className="w-full px-6 py-3 bg-rose-500 text-white font-semibold rounded-lg shadow-md hover:bg-rose-600 transition-colors"
+                                >
+                                    Play Now
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="bg-[var(--bg-panel)] rounded-lg p-6 backdrop-blur-sm text-left">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-2xl font-bold text-gray-500">#4</span>
+                                <div className="flex items-center gap-1 text-rose-400">
+                                    <HeartIcon className="w-5 h-5 fill-current" />
+                                    <span className="font-bold">7.1K</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <TriviaIcon className="w-16 h-16 text-teal-400 flex-shrink-0" />
+                                <div>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)]">Trivia Challenge</h3>
+                                    <p className="text-sm text-[var(--text-secondary)]">Test your knowledge!</p>
+                                </div>
+                            </div>
+                            <div className="mt-4">
+                                <button
+                                    onClick={onOpenTriviaGame}
+                                    className="w-full px-6 py-3 bg-teal-500 text-white font-semibold rounded-lg shadow-md hover:bg-teal-600 transition-colors"
+                                >
+                                    Play Now
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="bg-[var(--bg-panel)] rounded-lg p-6 backdrop-blur-sm text-left">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-2xl font-bold text-gray-500">#5</span>
+                                <div className="flex items-center gap-1 text-rose-400">
+                                    <HeartIcon className="w-5 h-5 fill-current" />
+                                    <span className="font-bold">5.6K</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <FolderIcon className="w-16 h-16 text-yellow-400 flex-shrink-0" />
+                                <div>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)]">Family Pack</h3>
+                                    <p className="text-sm text-[var(--text-secondary)]">Fun for the whole family!</p>
+                                </div>
+                            </div>
+                            <div className="mt-4">
+                                <button
+                                    onClick={onOpenFamilyPack}
+                                    className="w-full px-6 py-3 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition-colors"
+                                >
+                                    Open Pack
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <img src="/assets/games-illustration.svg" alt="Games Illustration" className="mx-auto mt-8 w-64 h-64" />
         </div>
@@ -698,42 +945,127 @@ const SponsorsPanel = () => (
         
         <div className="max-w-4xl mx-auto bg-[var(--bg-panel)] rounded-lg p-4 backdrop-blur-sm border border-[var(--border-color)]">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <a href="https://www.alpinef1.com/" target="_blank" rel="noopener noreferrer" className="relative block group focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-lg overflow-hidden aspect-video">
+                <a href="https://www.alpinef1.com/" target="_blank" rel="noopener noreferrer" className="relative flex items-center justify-center group focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-lg aspect-video bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500 overflow-hidden">
                     <img 
-                        src="/assets/alpine-blockdag-sponsor.svg" 
+                        src="/assets/bwt-alpine-blockdag.jpg?v=1" 
                         alt="BWT Alpine F1 Team and BlockDAG Partner" 
-                        className="rounded-lg w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        onError={(e) => {
+                            console.error('JPG failed, trying PNG');
+                            e.currentTarget.src = '/assets/bwt-alpine-blockdag.png?v=1';
+                            e.currentTarget.onerror = () => {
+                                console.error('PNG also failed');
+                                e.currentTarget.style.display = 'none';
+                            };
+                        }}
                     />
-                    <div className="absolute bottom-2 left-4">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none"></div>
+                    <div className="absolute bottom-2 left-4 z-10">
                         <span className="bg-pink-500 text-white text-lg font-bold px-3 py-1 rounded-md shadow-lg">BWT</span>
                     </div>
                 </a>
                 
-                <a href="#" target="_blank" rel="noopener noreferrer" className="relative block group focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-lg overflow-hidden aspect-video">
-                    <img 
-                        src="/assets/inter-milan-logo.svg" 
-                        alt="Inter Milan Partner" 
-                        className="rounded-lg w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
+                <a
+                    href="https://www.inter.it/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="relative flex items-center justify-center group focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-lg overflow-hidden aspect-video bg-gradient-to-br from-blue-600 to-blue-800 shadow-lg hover:shadow-2xl transition-all duration-300"
+                >
+                    <img
+                        src="/assets/inter-milan-blockdag.jpg?v=1"
+                        alt="Inter Milan and BlockDAG Partner"
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        onError={(e) => {
+                            console.error('JPG failed, trying PNG');
+                            e.currentTarget.src = '/assets/inter-milan-blockdag.png?v=1';
+                            e.currentTarget.onerror = () => {
+                                console.error('PNG also failed');
+                                e.currentTarget.style.display = 'none';
+                            };
+                        }}
                     />
-                    <div className="absolute bottom-2 left-4">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none"></div>
+                    <div className="absolute bottom-2 left-4 z-10">
                         <span className="bg-blue-600 text-white text-lg font-bold px-3 py-1 rounded-md shadow-lg">Inter Milan</span>
                     </div>
                 </a>
 
-                <a href="#" target="_blank" rel="noopener noreferrer" className="relative block group focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-lg overflow-hidden aspect-video">
-                    <img 
-                        src="/assets/ufc-logo.svg" 
-                        alt="UFC Partner" 
-                        className="rounded-lg w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
+                <a
+                    href="https://www.ufc.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="relative flex items-center justify-center group focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-lg overflow-hidden aspect-video bg-gradient-to-br from-gray-900 via-red-800 to-black shadow-lg hover:shadow-2xl transition-all duration-300"
+                >
+                    <img
+                        src="/assets/UFC_BlockdagX1.jpg?v=1"
+                        alt="UFC and BlockDAG Partner"
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        onError={(e) => {
+                            console.error('JPG failed, trying PNG');
+                            e.currentTarget.src = '/assets/UFC_BlockdagX1.png?v=1';
+                            e.currentTarget.onerror = () => {
+                                console.error('PNG also failed');
+                                e.currentTarget.style.display = 'none';
+                            };
+                        }}
                     />
-                    <div className="absolute bottom-2 left-4">
-                        <span className="bg-gray-800 text-white text-lg font-bold px-3 py-1 rounded-md shadow-lg">UFC</span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none"></div>
+                    <div className="absolute bottom-2 left-4 z-10">
+                        <span className="bg-red-700 text-white text-lg font-bold px-3 py-1 rounded-md shadow-lg">UFC</span>
+                    </div>
+                </a>
+
+                <a
+                    href="https://www.seattleorcas.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="relative flex items-center justify-center group focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-lg overflow-hidden aspect-video bg-gradient-to-br from-teal-700 to-blue-900 shadow-lg hover:shadow-2xl transition-all duration-300"
+                >
+                    <img
+                        src="/assets/Blockdag_x1_Sponsor_Orca.png?v=1"
+                        alt="Seattle Orcas and BlockDAG Partner"
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        onError={(e) => {
+                            console.error('PNG failed, trying JPG');
+                            e.currentTarget.src = '/assets/Blockdag_x1_Sponsor_Orca.jpg?v=1';
+                            e.currentTarget.onerror = () => {
+                                console.error('Both formats failed');
+                                e.currentTarget.style.display = 'none';
+                            };
+                        }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none"></div>
+                    <div className="absolute bottom-2 left-4 z-10">
+                        <span className="bg-teal-600 text-white text-lg font-bold px-3 py-1 rounded-md shadow-lg">Seattle Orcas</span>
+                    </div>
+                </a>
+
+                <a
+                    href="https://www.seawolves.rugby/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="relative flex items-center justify-center group focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-lg overflow-hidden aspect-video bg-gradient-to-br from-blue-800 to-indigo-900 shadow-lg hover:shadow-2xl transition-all duration-300"
+                >
+                    <img
+                        src="/assets/blockdag x1 seawolves.png?v=1"
+                        alt="Seawolves and BlockDAG Partner"
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        onError={(e) => {
+                            console.error('PNG failed, trying JPG');
+                            e.currentTarget.src = '/assets/blockdag x1 seawolves.jpg?v=1';
+                            e.currentTarget.onerror = () => {
+                                console.error('Both formats failed');
+                                e.currentTarget.style.display = 'none';
+                            };
+                        }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none"></div>
+                    <div className="absolute bottom-2 left-4 z-10">
+                        <span className="bg-blue-700 text-white text-lg font-bold px-3 py-1 rounded-md shadow-lg">Seawolves</span>
                     </div>
                 </a>
             </div>
         </div>
-
-        <img src="/assets/sponsors-illustration.svg" alt="Sponsors Illustration" className="mx-auto w-64 h-64 mt-12" />
     </div>
 );
 
@@ -746,7 +1078,7 @@ const EquipmentSlot = ({ label, icon, className = '' }: any) => (
     </div>
 );
 
-const InventoryPanel = ({ inventory, onEquip, onOpenSmartWatch, connectedWatch, watchData, tasks }: { inventory: (InventoryItem | TemplateItem)[], onEquip: (item: InventoryItem | TemplateItem) => void, onOpenSmartWatch: () => void, connectedWatch: string | null, watchData: any, tasks: Task[] }) => {
+const InventoryPanel = ({ inventory, onEquip, onOpenSmartWatch, connectedWatch, watchData, tasks, onOpenCraft }: { inventory: (InventoryItem | TemplateItem)[], onEquip: (item: InventoryItem | TemplateItem) => void, onOpenSmartWatch: () => void, connectedWatch: string | null, watchData: any, tasks: Task[], onOpenCraft: () => void }) => {
     const universal = inventory.filter(item => item.type === 'universal');
     const resources = inventory.filter(item => item.type === 'resource');
     const equipment = inventory.filter(item => item.type === 'equipment');
@@ -789,58 +1121,19 @@ const InventoryPanel = ({ inventory, onEquip, onOpenSmartWatch, connectedWatch, 
 
     return (
         <div className="p-4 md:p-6 animate-fadeIn h-full flex flex-col md:flex-row gap-6">
-            {/* Left Sidebar - Active Gear and Stats */}
-            <div className="flex-shrink-0 flex flex-col gap-4">
-                 <div className="bg-[var(--bg-panel)]/80 backdrop-blur-sm rounded-2xl p-4 border border-[var(--border-color)] flex flex-row md:flex-col items-center gap-4 shadow-xl">
-                    <h3 className="hidden md:block text-xs font-bold text-[var(--text-secondary)] mb-2 uppercase tracking-wider rotate-180 md:rotate-0" style={{writingMode: 'vertical-rl', textOrientation: 'mixed'}}>Active Gear</h3>
-                    <div className="flex flex-row md:flex-col gap-3">
-                        <EquipmentSlot label="Head" icon={<HelmIcon className="w-6 h-6 text-cyan-300" />} />
-                        <EquipmentSlot label="Chest" icon={<ChestIcon className="w-6 h-6 text-purple-300" />} />
-                        <EquipmentSlot label="Gloves" icon={<GlovesIcon className="w-6 h-6 text-yellow-300" />} />
-                        <EquipmentSlot label="Legs" icon={<LegsIcon className="w-6 h-6 text-blue-300" />} />
-                        <EquipmentSlot label="Boots" icon={<BootsIcon className="w-6 h-6 text-orange-300" />} />
-                    </div>
-                </div>
-
-                {/* Character Stats Section */}
-                <div className="bg-[var(--bg-panel)]/80 backdrop-blur-sm rounded-2xl p-4 border border-[var(--border-color)] shadow-xl w-full md:w-auto">
-                    <h3 className="text-xs font-bold text-[var(--text-secondary)] mb-3 text-center uppercase tracking-wider">Stats</h3>
-                    <div className="flex flex-wrap md:flex-col gap-2 justify-center">
-                        {stats.map((stat) => (
-                            <div key={stat.label} className="relative group flex items-center justify-between gap-3 bg-slate-900/50 px-3 py-1.5 rounded border border-slate-700/50 w-full min-w-[100px] hover:bg-slate-800/80 transition-colors">
-                                <span className="font-bold text-slate-400 text-xs">{stat.label}</span>
-                                <div className="flex items-center gap-1">
-                                    <span className={`font-mono font-bold text-sm ${stat.bonus > 0 ? 'text-green-400' : 'text-slate-200'}`}>
-                                        {stat.value}
-                                    </span>
-                                    {stat.bonus > 0 && (
-                                        <span className="text-[10px] text-green-500 font-bold">+{stat.bonus}</span>
-                                    )}
-                                </div>
-                                {stat.source !== '-' && (
-                                     <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-slate-900 text-white text-xs p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 border border-slate-700">
-                                        <p className="font-bold">{stat.source}</p>
-                                        <p className="text-slate-400">{stat.metric}</p>
-                                        {stat.bonus > 0 ? <p className="text-green-400">Active Bonus: +{stat.bonus}</p> : <p className="text-slate-500">No bonus active</p>}
-                                     </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
+            {/* Left Sidebar moved to Profile: Active Gear and Stats removed from Inventory */}
             {/* Main Content Area */}
             <div className="flex-grow flex flex-col">
                 <div className="flex justify-between items-center mb-6">
                      <h2 className="text-3xl font-bold text-teal-300">Inventory</h2>
-                     <button 
-                        onClick={onOpenSmartWatch}
-                        className={`flex items-center gap-3 px-4 py-2 rounded-xl border transition-all ${connectedWatch ? 'bg-green-500/10 border-green-500/50 text-green-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'}`}
-                    >
-                        <SmartWatchIcon className="w-5 h-5" />
-                        <span className="font-bold text-sm">{connectedWatch || "Connect Watch"}</span>
-                    </button>
+                     <div className="flex items-center gap-3">
+                        <button 
+                            onClick={onOpenCraft}
+                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl shadow-md transition-colors"
+                        >
+                            Craft Equipment
+                        </button>
+                     </div>
                 </div>
 
                 <div className="space-y-8 overflow-y-auto pr-2 pb-20 custom-scrollbar">
@@ -859,7 +1152,7 @@ const InventoryPanel = ({ inventory, onEquip, onOpenSmartWatch, connectedWatch, 
 
                     {resources.length > 0 && (
                         <div>
-                            <h3 className="text-lg font-bold text-[var(--text-secondary)] mb-3 border-b border-[var(--border-color)] pb-1">Resources</h3>
+                            <h3 className="text-lg font-bold text-[var(--text-secondary)] mb-3 border-b border-[var(--border-color)] pb-1">Common Resources</h3>
                             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3">
                                 {resources.map((item, idx) => (
                                     <div key={idx} onClick={() => onEquip(item)}>
@@ -988,6 +1281,47 @@ const SmartWatchModal = ({ isOpen, onClose, connectedWatch, onConnect, onDisconn
     );
 };
 
+// Simple Craft Equipment Modal (stub)
+const CraftEquipmentModal = ({ isOpen, onClose, inventory }: { isOpen: boolean; onClose: () => void; inventory: (InventoryItem | TemplateItem)[] }) => {
+    if (!isOpen) return null;
+    const resources = inventory.filter((i:any) => i.type === 'resource');
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/70" onClick={onClose}></div>
+            <div className="relative z-10 w-[92%] max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-xl p-5">
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-bold text-white">Craft Equipment</h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
+                </div>
+                <p className="text-sm text-slate-400 mb-4">Select a recipe and use resources to craft new equipment. Feature preview.</p>
+                <div className="mb-4">
+                    <h4 className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Resources</h4>
+                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-auto pr-1">
+                        {resources.length === 0 && (<p className="text-xs text-slate-500">No resources available.</p>)}
+                        {resources.map((r:any) => (
+                            <div key={r.id} className="flex items-center gap-2 bg-slate-800/60 border border-slate-700 rounded p-2">
+                                <div className="w-6 h-6 flex items-center justify-center text-slate-300">{r.icon}</div>
+                                <div className="text-xs">
+                                    <p className="text-white font-semibold leading-tight">{r.name}</p>
+                                    <p className="text-slate-400">Qty: {r.quantity ?? 0}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    <button onClick={onClose} className="px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded">
+                        Close
+                    </button>
+                    <button disabled className="px-3 py-2 text-sm bg-purple-600/60 text-white rounded opacity-60 cursor-not-allowed" title="Coming soon">
+                        Craft
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const GroupModal = ({ isOpen, onClose, party, friends, onInvite, onKick }: { isOpen: boolean; onClose: () => void; party: string[]; friends: Friend[]; onInvite: (name: string) => void; onKick: (name: string) => void }) => {
     if (!isOpen) return null;
     return (
@@ -1039,8 +1373,11 @@ const GroupModal = ({ isOpen, onClose, party, friends, onInvite, onKick }: { isO
     );
 };
 
-const FamilyPackModal = ({ isOpen, onClose, onPlayGame }: { isOpen: boolean; onClose: () => void; onPlayGame: (game: string) => void }) => {
+const FamilyPackModal = ({ isOpen, onClose, onPlayGame, party, friends, onProposeWager }: { isOpen: boolean; onClose: () => void; onPlayGame: (game: string) => void; party: string[]; friends: any[]; onProposeWager: (friendName: string, gameId: string) => void; }) => {
     if (!isOpen) return null;
+
+    const eligibleFriends = (friends || []).filter((f: any) => party.includes(f.name));
+    const [selectedFriend, setSelectedFriend] = React.useState<string>('');
 
     const games = [
         { name: "Uno Online", players: "2-5 Players", icon: <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white font-bold">U</div>, id: 'uno' },
@@ -1064,6 +1401,35 @@ const FamilyPackModal = ({ isOpen, onClose, onPlayGame }: { isOpen: boolean; onC
                     </div>
                     <h2 className="text-2xl font-bold text-white">Family Pack</h2>
                     <p className="text-slate-400 text-sm">Fun games for everyone!</p>
+                </div>
+
+                <div className="mb-4 bg-slate-800/60 border border-slate-700 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm text-white font-semibold">5 BDAG Wager</p>
+                        <span className="text-[11px] text-slate-400">Friends in your group</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <select
+                            className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-white"
+                            value={selectedFriend}
+                            onChange={e => setSelectedFriend(e.target.value)}
+                        >
+                            <option value="">Select friend</option>
+                            {eligibleFriends.map((f: any) => (
+                                <option key={f.name} value={f.name}>{f.name}</option>
+                            ))}
+                        </select>
+                        <button
+                            onClick={() => selectedFriend && onProposeWager(selectedFriend, 'family-pack')}
+                            disabled={!selectedFriend}
+                            className={`px-4 py-2 rounded bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50`}
+                        >
+                            Propose 5 BDAG wager
+                        </button>
+                    </div>
+                    {eligibleFriends.length === 0 && (
+                        <p className="text-[11px] text-amber-300 mt-2">Need a friend who is also in your group to wager.</p>
+                    )}
                 </div>
 
                 <div className="space-y-3">
@@ -1526,7 +1892,66 @@ const TaxModal = ({ isOpen, onClose, receipts, balance }: any) => {
 const DAOModal = ({ isOpen, onClose, isPremium }: any) => { if(!isOpen) return null; return null; };
 const JoustingModeModal = ({ isOpen, onClose }: any) => { if(!isOpen) return null; return null; };
 const LevelRewardsModal = ({ isOpen, onClose, currentLevel }: any) => { if(!isOpen) return null; return null; };
-const PremiumModal = ({ isOpen, onClose, onConfirm, balance }: any) => { if(!isOpen) return null; return null; };
+const PremiumModal = ({ isOpen, onClose, onConfirm }: { isOpen: boolean; onClose: () => void; onConfirm: (plan: 'monthly' | 'annual') => void; }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-[210] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-slate-900 border border-amber-500/20 rounded-2xl shadow-2xl max-w-lg w-full p-6 relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-cyan-500/5 pointer-events-none" />
+                <div className="flex items-center justify-between mb-3 relative z-10">
+                    <div>
+                        <p className="text-xs text-amber-400 font-bold uppercase tracking-[0.2em]">Premium Access</p>
+                        <h3 className="text-2xl font-bold text-white">Unlock the full X Series</h3>
+                        <p className="text-sm text-slate-300">$10/mo or $100/yr (2 months free)</p>
+                    </div>
+                    <button onClick={onClose} className="text-slate-500 hover:text-white">
+                        <XMarkIcon className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 relative z-10">
+                    {[
+                        'Start all in X Series X10',
+                        'Remote mining software for X30 / X100',
+                        'Craft Legendary Templates to sell for BDAG',
+                        'No ads — uninterrupted sessions',
+                        'Premium leveling rewards (exclusive)',
+                        'Vote in DAO decisions'
+                    ].map(item => (
+                        <div key={item} className="flex items-start gap-2 bg-slate-800/60 border border-white/5 rounded-lg p-3">
+                            <span className="mt-0.5 text-emerald-400">•</span>
+                            <p className="text-sm text-slate-100 leading-tight">{item}</p>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="bg-slate-800/60 border border-amber-500/20 rounded-xl p-4 mb-4 relative z-10">
+                    <p className="text-sm text-white font-semibold mb-2">Incentives to upgrade</p>
+                    <ul className="text-sm text-slate-200 space-y-1 list-disc list-inside">
+                        <li>Annual plan saves $20 vs monthly (effectively 2 free months).</li>
+                        <li>Priority access to new firmware, templates, and DAO votes.</li>
+                        <li>Bonus BDAG drop for Premium streaks and referral boosts.</li>
+                    </ul>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 relative z-10">
+                    <button
+                        onClick={() => onConfirm('monthly')}
+                        className="flex-1 px-4 py-3 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold shadow-lg shadow-cyan-500/30 transition-colors"
+                    >
+                        Activate $10/mo
+                    </button>
+                    <button
+                        onClick={() => onConfirm('annual')}
+                        className="flex-1 px-4 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-lg shadow-amber-500/30 transition-colors"
+                    >
+                        Activate $100/yr (best value)
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const MiningModal = ({ isOpen, onClose, isPremium }: { isOpen: boolean, onClose: () => void, isPremium: boolean }) => {
     if (!isOpen) return null;
@@ -1544,97 +1969,360 @@ const MiningModal = ({ isOpen, onClose, isPremium }: { isOpen: boolean, onClose:
     );
 };
 
-const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimTask, onClaimBadge, claimedXpInfo, onOpenLevelRewards, isPremium, onActivatePremium }: any) => {
+const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimTask, onClaimBadge, claimedXpInfo, onOpenLevelRewards, isPremium, onActivatePremium, onEditProfile, onNewProfile, onOpenSmartWatch, connectedWatch }: any) => {
+    const [showProfileMenu, setShowProfileMenu] = React.useState(false);
+    const [showEditModal, setShowEditModal] = React.useState(false);
+    const [showNewModal, setShowNewModal] = React.useState(false);
+    const [editName, setEditName] = React.useState<string>(user || '');
+    const [newName, setNewName] = React.useState<string>('');
+    const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
+    const videoRef = React.useRef<HTMLVideoElement | null>(null);
+    const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+    const [streamActive, setStreamActive] = React.useState(false);
+    const [capturedDataUrl, setCapturedDataUrl] = React.useState<string | null>(null);
+
+    React.useEffect(() => { setEditName(user || ''); }, [user]);
+
+    const openEdit = () => { setShowProfileMenu(false); setShowEditModal(true); };
+    const openNew = () => { setShowProfileMenu(false); setShowNewModal(true); };
+
+    const saveEdit = () => {
+        try { onEditProfile?.(editName); } catch (e) { }
+        setShowEditModal(false);
+    };
+    const saveNew = () => {
+        try {
+            onNewProfile?.(newName);
+            // persist avatar for this profile if captured
+            if (capturedDataUrl) {
+                try { localStorage.setItem(`profileAvatar:${newName}`, capturedDataUrl); } catch (e) { console.error(e); }
+                setAvatarUrl(capturedDataUrl);
+            }
+        } catch (e) { }
+        stopStream();
+        setCapturedDataUrl(null);
+        setShowNewModal(false);
+    };
+
+    const startStream = async () => {
+        try {
+            const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+            if (videoRef.current) {
+                videoRef.current.srcObject = s;
+                // play may reject in some contexts; swallow error
+                try { await videoRef.current.play(); } catch {}
+                setStreamActive(true);
+            }
+        } catch (err) {
+            console.error('Camera start failed', err);
+        }
+    };
+
+    const stopStream = () => {
+        try {
+            const stream = videoRef.current?.srcObject as MediaStream | null;
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+            }
+            if (videoRef.current) videoRef.current.srcObject = null;
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setStreamActive(false);
+        }
+    };
+
+    const capturePhoto = () => {
+        try {
+            const video = videoRef.current;
+            if (!video) return;
+            const canvas = canvasRef.current || document.createElement('canvas');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 640;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            // draw center square crop
+            const size = Math.min(canvas.width, canvas.height);
+            const sx = (canvas.width - size) / 2;
+            const sy = (canvas.height - size) / 2;
+            ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
+            const dataUrl = canvas.toDataURL('image/png');
+            setCapturedDataUrl(dataUrl);
+        } catch (e) {
+            console.error('capture failed', e);
+        }
+    };
+
+    React.useEffect(() => {
+        // load avatar for current user
+        try {
+            const stored = localStorage.getItem(`profileAvatar:${user}`);
+            if (stored) setAvatarUrl(stored);
+            else setAvatarUrl(null);
+        } catch (e) { console.error(e); }
+    }, [user]);
+
     return (
-        <div className="p-4 md:p-6 animate-fadeIn">
-            <div className="flex flex-col md:flex-row gap-6 mb-8 items-center md:items-start">
-                <div className="flex-shrink-0 relative">
-                     <div className="w-24 h-24 md:w-32 md:h-32 bg-slate-700 rounded-full overflow-hidden border-4 border-cyan-500 shadow-lg shadow-cyan-500/20">
-                        <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500">
-                             <ProfileIcon className="w-16 h-16" />
+        <div className="p-4 md:p-6 animate-fadeIn overflow-y-auto">
+            {/* HEADER: Picture, Name, XP Bar */}
+            <div className="flex flex-col items-center gap-4 mb-6 pb-4 border-b border-slate-700/50">
+                <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:justify-between">
+                    {/* Avatar Section */}
+                    <div className="flex-shrink-0 relative">
+                        <div className="w-20 h-20 bg-slate-700 rounded-full overflow-hidden border-4 border-cyan-500 shadow-lg shadow-cyan-500/20">
+                            <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500">
+                                <ProfileIcon className="w-12 h-12" />
+                            </div>
                         </div>
-                     </div>
-                     <button className="absolute bottom-0 right-0 bg-slate-800 p-2 rounded-full border border-slate-600 hover:bg-slate-700 transition-colors">
-                        <PencilIcon className="w-4 h-4 text-white" />
-                     </button>
-                </div>
-                <div className="flex-grow text-center md:text-left">
-                    <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
-                        <h2 className="text-3xl font-bold text-white">{user}</h2>
-                        {isPremium && (
-                            <span className="bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm">
-                                PREMIUM
-                            </span>
+                        <button onClick={(e)=>{ e.stopPropagation(); setShowProfileMenu(v=>!v); }} className="absolute bottom-0 right-0 bg-slate-800 p-2 rounded-full border border-slate-600 hover:bg-slate-700 transition-colors">
+                            <PencilIcon className="w-3 h-3 text-white" />
+                        </button>
+
+                        {showProfileMenu && (
+                            <div onClick={e=>e.stopPropagation()} className="absolute bottom-12 right-0 bg-slate-900 border border-slate-700 rounded shadow-md w-40 z-50">
+                                <button onClick={openEdit} className="w-full text-left px-3 py-2 hover:bg-slate-800">Edit Profile</button>
+                                <button onClick={openNew} className="w-full text-left px-3 py-2 hover:bg-slate-800">New Profile</button>
+                            </div>
+                        )}
+
+                        {showEditModal && (
+                            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={()=>setShowEditModal(false)}>
+                                <div className="bg-slate-900 rounded-xl w-full max-w-md p-4" onClick={e=>e.stopPropagation()}>
+                                    <h3 className="text-lg font-bold mb-2">Edit Profile</h3>
+                                    <label className="text-xs text-slate-400">Display name</label>
+                                    <input className="w-full bg-slate-800/60 p-2 rounded mt-1 mb-3" value={editName} onChange={e=>setEditName(e.target.value)} />
+                                    <div className="flex gap-2 justify-end">
+                                        <button onClick={()=>setShowEditModal(false)} className="px-3 py-1 bg-slate-700 rounded">Cancel</button>
+                                        <button onClick={saveEdit} className="px-3 py-1 bg-cyan-500 text-white rounded">Save</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {showNewModal && (
+                            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={()=>{ stopStream(); setShowNewModal(false); }}>
+                                <div className="bg-slate-900 rounded-xl w-full max-w-xl p-4" onClick={e=>e.stopPropagation()}>
+                                    <h3 className="text-lg font-bold mb-2">Create New Profile</h3>
+                                    <label className="text-xs text-slate-400">New display name</label>
+                                    <input className="w-full bg-slate-800/60 p-2 rounded mt-1 mb-3" value={newName} onChange={e=>setNewName(e.target.value)} />
+
+                                    <div className="mb-3">
+                                        {!capturedDataUrl ? (
+                                            <div>
+                                                <div className="bg-black rounded-md overflow-hidden mb-2">
+                                                    <video ref={videoRef} className="w-full h-64 object-cover bg-black" playsInline />
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={startStream} className="px-3 py-1 bg-cyan-600 text-white rounded">Start Camera</button>
+                                                    <button onClick={capturePhoto} disabled={!streamActive} className="px-3 py-1 bg-amber-500 text-white rounded">Capture</button>
+                                                    <button onClick={stopStream} disabled={!streamActive} className="px-3 py-1 bg-slate-700 text-white rounded">Stop</button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col gap-2">
+                                                <div className="w-48 h-48 rounded-full overflow-hidden mx-auto bg-slate-800">
+                                                    <img src={capturedDataUrl} className="w-full h-full object-cover" />
+                                                </div>
+                                                <div className="flex gap-2 justify-center">
+                                                    <button onClick={()=>{ setCapturedDataUrl(null); setTimeout(()=>startStream(),100); }} className="px-3 py-1 bg-slate-700 text-white rounded">Retake</button>
+                                                    <button onClick={saveNew} className="px-3 py-1 bg-emerald-500 text-white rounded">Create</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <canvas ref={canvasRef} style={{ display: 'none' }} />
+                                    </div>
+
+                                    <div className="flex gap-2 justify-end">
+                                        <button onClick={()=>{ stopStream(); setShowNewModal(false); }} className="px-3 py-1 bg-slate-700 rounded">Cancel</button>
+                                        {!capturedDataUrl && <button onClick={saveNew} className="px-3 py-1 bg-emerald-500 text-white rounded">Create (no photo)</button>}
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </div>
-                    <p className="text-slate-400 mb-4 flex items-center justify-center md:justify-start gap-2">
-                        <span>Level {Math.floor(watchData.xp / 1000) + 1} Explorer</span>
-                        <span className="w-1 h-1 bg-slate-500 rounded-full"></span>
-                        <span className="text-cyan-400 font-mono">{watchData.xp} XP</span>
-                    </p>
-                    
-                     <div className="w-full max-w-md bg-slate-800/50 rounded-full h-3 mb-4 overflow-hidden border border-slate-700/50">
-                        <div 
-                            className="bg-gradient-to-r from-cyan-500 to-blue-600 h-full rounded-full transition-all duration-1000 ease-out relative"
-                            style={{ width: `${(watchData.xp % 1000) / 10}%` }}
-                        >
-                             <div className="absolute top-0 left-0 w-full h-full bg-white/20 animate-pulse"></div>
+
+                    {/* Name, Level, XP Info */}
+                    <div className="flex-grow text-center sm:text-left">
+                        <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                            <h2 className="text-2xl font-bold text-white">{user}</h2>
+                            {isPremium && (
+                                <span className="bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded">PREMIUM</span>
+                            )}
+                        </div>
+                        <p className="text-sm text-slate-400 mb-2">Level {Math.floor(watchData.xp / 1000) + 1} • <span className="text-cyan-400 font-mono">{watchData.xp} XP</span></p>
+                        
+                        {/* XP Progress Bar */}
+                        <div className="w-full max-w-xs mx-auto sm:mx-0 bg-slate-800/50 rounded-full h-2 overflow-hidden border border-slate-700/50">
+                            <div 
+                                className="bg-gradient-to-r from-cyan-500 to-blue-600 h-full rounded-full transition-all duration-1000 ease-out"
+                                style={{ width: `${(watchData.xp % 1000) / 10}%` }}
+                            ></div>
                         </div>
                     </div>
-                    
-                    {!isPremium && (
-                         <button 
-                            onClick={onActivatePremium}
-                            className="text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/50 px-3 py-1.5 rounded transition-colors"
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                        {!isPremium && (
+                            <button 
+                                onClick={onActivatePremium}
+                                className="text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/50 px-2.5 py-1.5 rounded transition-colors whitespace-nowrap"
+                            >
+                                Premium
+                            </button>
+                        )}
+                        <button 
+                            onClick={onOpenSmartWatch}
+                            className={`text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded border transition-all whitespace-nowrap ${connectedWatch ? 'bg-green-500/10 border-green-500/50 text-green-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'}`}
                         >
-                            Upgrade to Premium
+                            <SmartWatchIcon className="w-3 h-3" />
+                            <span className="font-bold">{connectedWatch ? 'Connected' : 'Watch'}</span>
                         </button>
-                    )}
+                    </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                 <div className="bg-[var(--bg-panel)] p-5 rounded-xl border border-[var(--border-color)]">
-                    <div className="flex items-center gap-3 mb-2">
-                         <div className="p-2 bg-green-500/20 rounded-lg">
-                             <SmartWatchIcon className="w-6 h-6 text-green-400" />
-                         </div>
-                         <h3 className="font-bold text-slate-200">Activity</h3>
+            {/* STATS ROW: Quick stats */}
+            <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-xl p-3 mb-6">
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                        <SmartWatchIcon className="w-4 h-4 text-cyan-400" />
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">How ya feeling?</p>
                     </div>
-                    <p className="text-2xl font-mono font-bold text-white">{watchData.steps.toLocaleString()}</p>
-                    <p className="text-xs text-slate-400">Steps Today</p>
-                 </div>
-                 
-                 <div className="bg-[var(--bg-panel)] p-5 rounded-xl border border-[var(--border-color)] cursor-pointer hover:bg-slate-800/80 transition-colors" onClick={onOpenLevelRewards}>
-                    <div className="flex items-center gap-3 mb-2">
-                         <div className="p-2 bg-purple-500/20 rounded-lg">
-                             <StarIcon className="w-6 h-6 text-purple-400" />
-                         </div>
-                         <h3 className="font-bold text-slate-200">Level Progress</h3>
+                    <span className="text-[11px] text-slate-500">Daily snapshot</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-2">
+                        <p className="text-[11px] text-slate-400 flex items-center gap-1"><SmartWatchIcon className="w-3 h-3 text-green-400" />Steps</p>
+                        <p className="text-base font-mono font-bold text-white leading-tight">{watchData.steps.toLocaleString()}</p>
                     </div>
-                    <p className="text-2xl font-mono font-bold text-white">{Math.floor(watchData.xp / 1000) + 1}</p>
-                    <p className="text-xs text-slate-400">Current Level</p>
-                 </div>
-
-                 <div className="bg-[var(--bg-panel)] p-5 rounded-xl border border-[var(--border-color)]">
-                    <div className="flex items-center gap-3 mb-2">
-                         <div className="p-2 bg-blue-500/20 rounded-lg">
-                             <QuestsIcon className="w-6 h-6 text-blue-400" />
-                         </div>
-                         <h3 className="font-bold text-slate-200">Total XP</h3>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-2">
+                        <p className="text-[11px] text-slate-400 flex items-center gap-1"><QuestsIcon className="w-3 h-3 text-blue-400" />Sleep</p>
+                        <p className="text-base font-mono font-bold text-white leading-tight">{watchData.sleepScore || 0}%</p>
                     </div>
-                    <p className="text-2xl font-mono font-bold text-white">{watchData.xp.toLocaleString()}</p>
-                    <p className="text-xs text-slate-400">Lifetime Experience</p>
-                 </div>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-2">
+                        <p className="text-[11px] text-slate-400 flex items-center gap-1"><QuestsIcon className="w-3 h-3 text-amber-400" />Stairs</p>
+                        <p className="text-base font-mono font-bold text-white leading-tight">{watchData.stairs?.toLocaleString?.() || watchData.stairs || 0}</p>
+                    </div>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-2">
+                        <p className="text-[11px] text-slate-400 flex items-center gap-1"><QuestsIcon className="w-3 h-3 text-red-400" />Calories</p>
+                        <p className="text-base font-mono font-bold text-white leading-tight">{watchData.calories?.toLocaleString?.() || watchData.calories || 0}</p>
+                    </div>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* CHARACTER STATS: Health, Armor, Speed */}
+            <div className="mb-6">
+                <div className="bg-gradient-to-r from-slate-900 via-slate-900/80 to-slate-950 border border-slate-800 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <HeartIcon className="w-4 h-4 text-red-400" />
+                            <p className="text-xs text-slate-300 font-semibold uppercase tracking-[0.18em]">Vitals</p>
+                        </div>
+                        <span className="text-[11px] text-slate-500">Compact view</span>
+                    </div>
+                    <div className="space-y-2">
+                        {(() => {
+                            const vitals = [
+                                { label: 'Health', valueText: '100 / 100 HP', percent: 100, barClass: 'bg-red-500/80', icon: <HeartIcon className="w-3.5 h-3.5 text-red-300" /> },
+                                { label: 'Armor', valueText: '0 DEF', percent: 0, barClass: 'bg-blue-400/80', icon: <ShieldIcon className="w-3.5 h-3.5 text-blue-300" /> },
+                                { label: 'Speed', valueText: '0% SPD', percent: 0, barClass: 'bg-yellow-400/80', icon: <span className="text-yellow-300 text-xs font-bold">⚡</span> },
+                            ];
+                            return vitals.map(v => (
+                                <div key={v.label} className="space-y-1">
+                                    <div className="flex items-center justify-between text-[11px] text-slate-300">
+                                        <div className="flex items-center gap-2">
+                                            {v.icon}
+                                            <span className="font-semibold uppercase tracking-wide">{v.label}</span>
+                                        </div>
+                                        <span className="font-mono text-slate-200">{v.valueText}</span>
+                                    </div>
+                                    <div className="h-2 rounded-full bg-slate-900/70 border border-slate-800 overflow-hidden">
+                                        <div className={`${v.barClass} h-full`} style={{ width: `${Math.min(100, Math.max(0, v.percent))}%` }}></div>
+                                    </div>
+                                </div>
+                            ));
+                        })()}
+                    </div>
+                </div>
+            </div>
+
+            {/* GEAR & STATS: Compact 2-column layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                {/* Active Gear - smaller */}
+                <div className="bg-[var(--bg-panel)]/60 rounded-lg p-3 border border-[var(--border-color)]">
+                    <h3 className="text-xs font-bold text-slate-400 mb-2 uppercase">Gear</h3>
+                    <div className="flex flex-wrap gap-2">
+                        <EquipmentSlot label="Head" icon={<HelmIcon className="w-5 h-5 text-cyan-300" />} className="flex-1 min-w-[60px]" />
+                        <EquipmentSlot label="Chest" icon={<ChestIcon className="w-5 h-5 text-purple-300" />} className="flex-1 min-w-[60px]" />
+                        <EquipmentSlot label="Gloves" icon={<GlovesIcon className="w-5 h-5 text-yellow-300" />} className="flex-1 min-w-[60px]" />
+                        <EquipmentSlot label="Legs" icon={<LegsIcon className="w-5 h-5 text-blue-300" />} className="flex-1 min-w-[60px]" />
+                        <EquipmentSlot label="Boots" icon={<BootsIcon className="w-5 h-5 text-orange-300" />} className="flex-1 min-w-[60px]" />
+                    </div>
+                </div>
+
+                {/* Stats - compact grid */}
+                <div className="lg:col-span-2 bg-[var(--bg-panel)]/60 rounded-lg p-3 border border-[var(--border-color)]">
+                    <h3 className="text-xs font-bold text-slate-400 mb-2 uppercase">Stats</h3>
+                    <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5">
+                        {(() => {
+                           const calculateBonus = (value: number, tier1: number, tier2: number) => {
+                              if (value >= tier2) return 2; if (value >= tier1) return 1; return 0;
+                           };
+                           const calculateIntBonus = () => {
+                              const t1 = tasks?.find((t:any) => t.id === 'daily-game-1')?.isClaimed; 
+                              const t3 = tasks?.find((t:any) => t.id === 'daily-game-3')?.isClaimed; 
+                              let b = 0; if (t1) b += 1; if (t3) b += 1; return b;
+                           };
+                           const bonuses = {
+                              STR: calculateBonus(watchData?.stairs || 0, 10, 20),
+                              DEX: calculateBonus(watchData?.steps || 0, 5000, 10000),
+                              CON: calculateBonus(watchData?.sleepScore || 0, 70, 85),
+                              INT: calculateIntBonus(),
+                              WIS: 0,
+                              CHA: calculateBonus(watchData?.calories || 0, 1500, 2000)
+                           };
+                           const stats = [
+                              { label: 'STR', value: 0 + bonuses.STR, bonus: bonuses.STR, source: 'Stairs', metric: `${watchData?.stairs || 0} floors` },
+                              { label: 'DEX', value: 0 + bonuses.DEX, bonus: bonuses.DEX, source: 'Steps', metric: `${(watchData?.steps || 0).toLocaleString()}` },
+                              { label: 'CON', value: 0 + bonuses.CON, bonus: bonuses.CON, source: 'Sleep', metric: `${watchData?.sleepScore || 0}%` },
+                              { label: 'INT', value: 0 + bonuses.INT, bonus: bonuses.INT, source: 'Daily Quests', metric: 'Games Played' },
+                              { label: 'WIS', value: 0, bonus: 0, source: '-' },
+                              { label: 'CHA', value: 0 + bonuses.CHA, bonus: bonuses.CHA, source: 'Calories', metric: `${watchData?.calories || 0}` },
+                           ];
+                           return stats.map((stat:any) => (
+                             <div key={stat.label} className="relative group flex flex-col items-center justify-center gap-0.5 bg-slate-900/60 px-2 py-1.5 rounded border border-slate-700/50 hover:bg-slate-800/80 transition-colors cursor-help">
+                                <span className="font-bold text-slate-400 text-xs">{stat.label}</span>
+                                <div className="flex items-center gap-0.5">
+                                    <span className={`font-mono font-bold text-sm ${stat.bonus > 0 ? 'text-green-400' : 'text-slate-200'}`}>{stat.value}</span>
+                                    {stat.bonus > 0 && <span className="text-[9px] text-green-500 font-bold">+{stat.bonus}</span>}
+                                </div>
+                                {stat.source !== '-' && (
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 text-white text-xs p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 border border-slate-700">
+                                    <p className="font-bold">{stat.source}</p>
+                                    <p className="text-slate-400 text-[11px]">{stat.metric}</p>
+                                    {stat.bonus > 0 ? <p className="text-green-400 text-[11px]">+{stat.bonus} bonus</p> : <p className="text-slate-500 text-[11px]">-</p>}
+                                  </div>
+                                )}
+                             </div>
+                           ));
+                        })()}
+                    </div>
+                </div>
+            </div>
+
+            {/* TEAM BUFFS: Set-based slots */}
+            <div className="mb-6">
+                <GroupSlots handle={user} />
+            </div>
+
+            {/* TASKS & BADGES: Side by side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <div>
-                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-bold text-cyan-300">Daily Tasks</h3>
-                        <span className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded">Resets in 4h 12m</span>
+                     <div className="flex justify-between items-center mb-3">
+                        <h3 className="text-lg font-bold text-cyan-300">Daily Tasks</h3>
+                        <span className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded">4h 12m left</span>
                      </div>
-                     <div className="space-y-3">
+                     <div className="space-y-2">
                         {tasks.map((task: any) => (
                             <TaskItem 
                                 key={task.id} 
@@ -1649,22 +2337,23 @@ const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimT
                 </div>
 
                 <div>
-                    <h3 className="text-xl font-bold text-yellow-300 mb-4">Badges & Achievements</h3>
+                    <h3 className="text-lg font-bold text-yellow-300 mb-3">Badges</h3>
                     <BadgesView badges={badges} onClaimBadge={onClaimBadge} />
                 </div>
             </div>
             
-            <div className="mt-8 pt-8 border-t border-[var(--border-color)]">
-                 <h3 className="text-xl font-bold text-indigo-300 mb-4">Friends ({friends.length})</h3>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {/* FRIENDS: Bottom section */}
+            <div className="pt-6 border-t border-slate-700/50">
+                 <h3 className="text-lg font-bold text-indigo-300 mb-3">Friends ({friends.length})</h3>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                      {friends.map((friend: any) => (
-                         <div key={friend.id} className="bg-[var(--bg-panel)] p-3 rounded-lg flex items-center justify-between border border-[var(--border-color)]">
-                             <div className="flex items-center gap-3">
+                         <div key={friend.id} className="bg-[var(--bg-panel)] p-2.5 rounded-lg flex items-center justify-between border border-[var(--border-color)]">
+                             <div className="flex items-center gap-2">
                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-xs ${friend.isBlockdagFriend ? 'bg-indigo-600' : 'bg-slate-600'}`}>
                                      {friend.name[0]}
                                  </div>
                                  <div>
-                                     <p className="font-semibold text-sm text-white">{friend.name}</p>
+                                     <p className="font-semibold text-xs text-white">{friend.name}</p>
                                      <div className="flex items-center gap-1">
                                          <div className={`w-2 h-2 rounded-full ${friend.status === 'online' ? 'bg-green-500' : 'bg-slate-500'}`}></div>
                                          <span className="text-xs text-slate-400 capitalize">{friend.status}</span>
@@ -1672,8 +2361,8 @@ const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimT
                                  </div>
                              </div>
                              {friend.isBlockdagFriend && (
-                                 <div className="bg-indigo-500/20 p-1.5 rounded" title="BlockDAG User">
-                                     <BlockDAGIcon className="w-4 h-4 text-indigo-400" />
+                                 <div className="bg-indigo-500/20 p-1 rounded" title="BlockDAG User">
+                                     <BlockDAGIcon className="w-3 h-3 text-indigo-400" />
                                  </div>
                              )}
                          </div>
@@ -1686,6 +2375,7 @@ const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimT
 
 
 export default function App() {
+    useEffect(() => { console.log('App mounted'); }, []);
     const [username, setUsername] = useState('Guest');
     const [activeView, setActiveView] = useState<ActiveView>('wallet');
     const [bdagBalance, setBdagBalance] = useState(12500.0000);
@@ -1709,13 +2399,16 @@ export default function App() {
     const [showSmartWatchModal, setShowSmartWatchModal] = useState(false);
     const [showGroupModal, setShowGroupModal] = useState(false);
     const [showFamilyPackModal, setShowFamilyPackModal] = useState(false);
+    const [wagerRequest, setWagerRequest] = useState<null | { game: string; from: string; to: string; amount: number; status: 'pending' | 'accepted' | 'declined'; initiator: 'self' | 'friend' }>(null);
+    const [showCityBldr, setShowCityBldr] = useState(false);
+    const [showCraftModal, setShowCraftModal] = useState(false);
     
     // Lifted state
     const [raffleTickets, setRaffleTickets] = useState(5);
     const [connectedWatch, setConnectedWatch] = useState<string | null>(null);
     
     // Games state
-    const [activeGame, setActiveGame] = useState<'hearts' | 'trivia' | 'sketchit' | 'uno' | null>(null);
+    const [activeGame, setActiveGame] = useState<'hearts' | 'trivia' | 'sketchit' | 'uno' | 'citybldr' | null>(null);
     
 
     // Data
@@ -1730,13 +2423,24 @@ export default function App() {
     const [party, setParty] = useState(['You', 'Alice', 'Bob', 'Charlie']);
     
     const [inventory, setInventory] = useState<(InventoryItem | TemplateItem)[]>([
-        { id: '1', name: 'Iron Ore', quantity: 5, icon: <IronIcon />, type: 'resource' },
-        { id: '2', name: 'Wood Log', quantity: 12, icon: <WoodIcon />, type: 'resource' },
-        { id: '3', name: 'Cloth', quantity: 3, icon: <ClothIcon />, type: 'resource' },
+        { id: '1', name: 'Building', quantity: 5, icon: <IronIcon />, type: 'resource' },
+        { id: '2', name: 'Equipment', quantity: 12, icon: <WoodIcon />, type: 'resource' },
         { id: '4', name: 'Blue Template', quantity: 1, icon: <TemplateIcon className="w-10 h-10 text-blue-400" />, type: 'template' },
         { id: '5', name: 'Purple Template', quantity: 1, icon: <TemplateIcon className="w-10 h-10 text-purple-400" />, type: 'template' },
         { id: '6', name: 'Orange Template', quantity: 1, icon: <TemplateIcon className="w-10 h-10 text-orange-400" />, type: 'template' },
         { id: '7', name: 'Prism', quantity: 100, icon: <PrismIcon />, type: 'universal' },
+        // Backpack Equipment - Purple Tier
+        { id: 'helm-iron-purple', name: 'Iron Helm (Purple)', quantity: 1, icon: <HelmIcon />, type: 'equipment', rarity: 'common' },
+        { id: 'chest-plate-purple', name: 'Steel Breastplate (Purple)', quantity: 1, icon: <ChestIcon />, type: 'equipment', rarity: 'uncommon' },
+        { id: 'gloves-leather-purple', name: 'Leather Gloves (Purple)', quantity: 1, icon: <GlovesIcon />, type: 'equipment', rarity: 'rare' },
+        { id: 'legs-plate-purple', name: 'Plate Leggings (Purple)', quantity: 1, icon: <LegsIcon />, type: 'equipment', rarity: 'epic' },
+        { id: 'boots-steel-purple', name: 'Steel Boots (Purple)', quantity: 1, icon: <BootsIcon />, type: 'equipment', rarity: 'legendary' },
+        // Backpack Equipment - Orange Tier
+        { id: 'helm-iron-orange', name: 'Iron Helm (Orange)', quantity: 1, icon: <HelmIcon />, type: 'equipment', rarity: 'common' },
+        { id: 'chest-plate-orange', name: 'Steel Breastplate (Orange)', quantity: 1, icon: <ChestIcon />, type: 'equipment', rarity: 'uncommon' },
+        { id: 'gloves-leather-orange', name: 'Leather Gloves (Orange)', quantity: 1, icon: <GlovesIcon />, type: 'equipment', rarity: 'rare' },
+        { id: 'legs-plate-orange', name: 'Plate Leggings (Orange)', quantity: 1, icon: <LegsIcon />, type: 'equipment', rarity: 'epic' },
+        { id: 'boots-steel-orange', name: 'Steel Boots (Orange)', quantity: 1, icon: <BootsIcon />, type: 'equipment', rarity: 'legendary' },
     ]);
 
     const [badges, setBadges] = useState<BadgeType[]>([
@@ -1747,7 +2451,10 @@ export default function App() {
             unlocked: true,
             icon: <EarlyAdopterBadgeIcon />,
             difficulty: 'Easy',
-            reward: [{ type: 'resource', id: 'bdag', name: 'BDAG', icon: <BlockDAGIcon />, quantity: 100 }],
+            reward: [
+                { type: 'resource', id: 'prism', name: 'Prism', icon: <PrismIcon />, quantity: 500 },
+                { type: 'resource', id: 'xp', name: 'XP', icon: <SparklesIcon />, quantity: 100 }
+            ],
             isClaimed: true
         },
     ]);
@@ -1758,7 +2465,7 @@ export default function App() {
             description: 'Log in to the app',
             type: 'daily',
             difficulty: 'Easy',
-            reward: [{ type: 'resource', id: 'iron_ore', name: 'Iron Ore', icon: <IronIcon />, quantity: 5 }],
+            reward: [{ type: 'resource', id: 'iron_ore', name: 'Building', icon: <IronIcon />, quantity: 5 }],
             isComplete: () => true,
             isClaimed: false
         },
@@ -1997,12 +2704,11 @@ export default function App() {
         setShowPremiumModal(true);
     };
 
-    const handlePurchasePremium = (cost: number) => {
-        if (bdagBalance >= cost) {
-            setBdagBalance(prev => prev - cost);
-            setIsPremium(true);
-            setShowPremiumModal(false);
-        }
+    const handlePurchasePremium = (plan: 'monthly' | 'annual') => {
+        setIsPremium(true);
+        setShowPremiumModal(false);
+        const perk = plan === 'annual' ? 'Annual: save 2 months + priority feature access.' : 'Monthly: cancel anytime.';
+        try { alert?.(`Premium Unlocked\n${plan === 'annual' ? '$100/yr' : '$10/mo'} — ${perk}`); } catch {}
     };
 
     const handleConnectWatch = (device: string) => {
@@ -2018,6 +2724,23 @@ export default function App() {
         if (party.length < 5 && !party.includes(friendName)) {
             setParty(prev => [...prev, friendName]);
         }
+    };
+
+    const handleProposeWager = (friendName: string, gameId: string) => {
+        if (!party.includes(friendName) || !friends.find((f: any) => f.name === friendName)) {
+            alert('You can only wager with friends who are in your group.');
+            return;
+        }
+        setWagerRequest({ game: gameId, from: username, to: friendName, amount: 5, status: 'pending', initiator: 'self' });
+    };
+
+    const handleRespondToWager = (accept: boolean) => {
+        if (!wagerRequest) return;
+        if (!accept) {
+            setWagerRequest(null);
+            return;
+        }
+        setWagerRequest(prev => prev ? { ...prev, status: 'accepted' } : prev);
     };
 
     const handleRemoveFromParty = (memberName: string) => {
@@ -2055,6 +2778,10 @@ export default function App() {
         return <UnoGame onExit={handleGameExit} />;
     }
 
+    if (activeGame === 'citybldr') {
+        return <CityBuilderGame onClose={handleGameExit} />;
+    }
+
     const renderActiveView = () => {
         switch (activeView) {
             case 'wallet':
@@ -2082,6 +2809,7 @@ export default function App() {
                     onOpenHeartsGame={() => setActiveGame('hearts')}
                     onOpenTriviaGame={() => setActiveGame('trivia')}
                     onOpenFamilyPack={() => setShowFamilyPackModal(true)}
+                    onOpenCityBldr={() => setShowCityBldr(true)}
                 />;
             case 'profile':
                 return <ProfilePanel 
@@ -2097,6 +2825,10 @@ export default function App() {
                     onOpenLevelRewards={() => setShowLevelRewards(true)}
                     isPremium={isPremium}
                     onActivatePremium={handleActivatePremium}
+                    onEditProfile={(newName: string) => setUsername(newName)}
+                    onNewProfile={(newName: string) => setUsername(newName)}
+                    onOpenSmartWatch={() => setShowSmartWatchModal(true)}
+                    connectedWatch={connectedWatch}
                 />;
             case 'sponsors':
                 return <SponsorsPanel />;
@@ -2108,6 +2840,7 @@ export default function App() {
                     connectedWatch={connectedWatch}
                     watchData={watchData}
                     tasks={tasks}
+                    onOpenCraft={() => setShowCraftModal(true)}
                 />;
             default:
                 return <div className="p-6 text-center">Coming Soon</div>;
@@ -2155,6 +2888,34 @@ export default function App() {
             {/* Main Content */}
             <main className="flex-grow overflow-y-auto pb-20 scrollbar-hide">
                 <div className="max-w-full w-full px-4 sm:px-6 md:max-w-4xl mx-auto">
+                    {wagerRequest && (
+                        <div className="mb-4 bg-slate-900/80 border border-emerald-500/30 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div className="space-y-1">
+                                <p className="text-sm text-white font-semibold">5 BDAG Wager • {wagerRequest.game}</p>
+                                {wagerRequest.status === 'accepted' ? (
+                                    <p className="text-xs text-emerald-300">Locked in with {wagerRequest.to}. Good luck!</p>
+                                ) : wagerRequest.initiator === 'self' ? (
+                                    <p className="text-xs text-slate-300">Waiting for {wagerRequest.to} to accept.</p>
+                                ) : (
+                                    <p className="text-xs text-slate-300">{wagerRequest.from} challenged you to a 5 BDAG wager.</p>
+                                )}
+                            </div>
+                            <div className="flex gap-2">
+                                {wagerRequest.status === 'pending' && wagerRequest.initiator === 'friend' && (
+                                    <>
+                                        <button onClick={() => handleRespondToWager(true)} className="px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded hover:bg-emerald-500">Accept</button>
+                                        <button onClick={() => handleRespondToWager(false)} className="px-3 py-1.5 text-xs font-bold bg-slate-800 text-slate-300 rounded border border-slate-700 hover:bg-slate-700">Decline</button>
+                                    </>
+                                )}
+                                {wagerRequest.status === 'pending' && wagerRequest.initiator === 'self' && (
+                                    <button onClick={() => setWagerRequest(null)} className="px-3 py-1.5 text-xs font-bold bg-slate-800 text-slate-300 rounded border border-slate-700 hover:bg-slate-700">Cancel</button>
+                                )}
+                                {wagerRequest.status === 'accepted' && (
+                                    <button onClick={() => setWagerRequest(null)} className="px-3 py-1.5 text-xs font-bold bg-slate-800 text-slate-300 rounded border border-slate-700 hover:bg-slate-700">Dismiss</button>
+                                )}
+                            </div>
+                        </div>
+                    )}
                     {renderActiveView()}
                 </div>
             </main>
@@ -2221,11 +2982,26 @@ export default function App() {
             <JoustingModeModal isOpen={showJoustingMode} onClose={() => setShowJoustingMode(false)} />
             <DAOModal isOpen={showDaoModal} onClose={() => setShowDaoModal(false)} isPremium={isPremium} />
             <LevelRewardsModal isOpen={showLevelRewards} onClose={() => setShowLevelRewards(false)} currentLevel={Math.floor(watchData.xp / 1000) + 1} />
-            <PremiumModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} onConfirm={handlePurchasePremium} balance={bdagBalance} />
+            <PremiumModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} onConfirm={handlePurchasePremium} />
             <SmartWatchModal isOpen={showSmartWatchModal} onClose={() => setShowSmartWatchModal(false)} connectedWatch={connectedWatch} onConnect={handleConnectWatch} onDisconnect={handleDisconnectWatch} />
+            <CraftEquipmentModal isOpen={showCraftModal} onClose={() => setShowCraftModal(false)} inventory={inventory} />
             <GroupModal isOpen={showGroupModal} onClose={() => setShowGroupModal(false)} party={party} friends={friends} onInvite={handleInviteFriend} onKick={handleRemoveFromParty} />
-            <FamilyPackModal isOpen={showFamilyPackModal} onClose={() => setShowFamilyPackModal(false)} onPlayGame={handlePlayGame} />
+            <FamilyPackModal isOpen={showFamilyPackModal} onClose={() => setShowFamilyPackModal(false)} onPlayGame={handlePlayGame} party={party} friends={friends} onProposeWager={handleProposeWager} />
+            <CityBldrModal isOpen={showCityBldr} onClose={() => setShowCityBldr(false)} onLaunch={() => setActiveGame('citybldr')} />
 
         </div>
     );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
