@@ -1,11 +1,11 @@
 
 import { Miner, MinerStatus } from '../../types';
 
-export const MODEL_SPECS: Record<string, { maxHash: number; maxPower: number; efficiency: number }> = {
-  'X1': { maxHash: 0.25, maxPower: 5, efficiency: 0 }, 
-  'X10-Blade': { maxHash: 100, maxPower: 250, efficiency: 2.5 }, 
-  'X30-Core': { maxHash: 8.5, maxPower: 3400, efficiency: 400 }, 
-  'X100-Mainframe': { maxHash: 200, maxPower: 5000, efficiency: 25 }
+export const MODEL_SPECS: Record<string, { maxHash: number; maxPower: number; efficiency: number; bdagPerDay: number }> = {
+  'X1': { maxHash: 0.25, maxPower: 0, efficiency: 0, bdagPerDay: 18 }, 
+  'X10-Blade': { maxHash: 100, maxPower: 40, efficiency: 2.5, bdagPerDay: 180 }, 
+  'X30-Core': { maxHash: 8.5, maxPower: 250, efficiency: 400, bdagPerDay: 550 }, 
+  'X100-Mainframe': { maxHash: 200, maxPower: 400, efficiency: 25, bdagPerDay: 1800 }
 };
 
 export const INITIAL_MINERS: Miner[] = [
@@ -40,7 +40,7 @@ export const INITIAL_MINERS: Miner[] = [
     hashrate: 8.2,
     hashrateUnit: 'TH/s',
     temperature: 72.0,
-    powerUsage: 3100,
+    powerUsage: 250,
     ipAddress: '192.168.1.105',
     uptime: 145000
   },

@@ -19,6 +19,21 @@ View your app in AI Studio: https://ai.studio/apps/drive/1ZtN8IQY9GU3b94ZSvZXPtM
 3. Run the app:
    `npm run dev`
 
+## Backend (local testing)
+
+We scaffolded a small Fastify + Prisma + SQLite server under `server/`.
+
+1) Install deps: `cd server && npm install`
+2) Copy env: `cp .env.example .env` (Windows: `copy .env.example .env`)
+3) Generate Prisma client + DB: `npx prisma generate && npx prisma migrate dev --name init`
+4) Run API: `npm run dev` (defaults to port 4000, CORS open to http://localhost:5173)
+
+Endpoints (JSON):
+- `POST /users` { handle }
+- `GET /team/slots/:handle`, `POST /team/slots` { handle, set, invitedId }, `POST /team/slots/accept` { handle, set }, `POST /team/slots/revoke` { handle, set }
+- `GET /rental-board`, `POST /rental-board` { handle, message, rate? }, `DELETE /rental-board/:id`
+- `POST /equipped-sets` { handle, sets: string[] }, `GET /equipped-sets/:handle`
+
 ## Deployment (GitHub Pages)
 
 This repository includes a GitHub Actions workflow that builds the Vite app and publishes the `dist` folder to the `gh-pages` branch. After you push to `main`, the site will be published automatically.

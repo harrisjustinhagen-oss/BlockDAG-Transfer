@@ -1,0 +1,6 @@
+Tasks:
+1. Add Plymouth, MN override option in CityBldrModal
+2. Generate random point within 10 miles of chosen base location
+3. Use that point as userPos for park lookup and map centering
+4. Add UI button "Set me in Plymouth, MN" in modal
+5. Test behavior locally

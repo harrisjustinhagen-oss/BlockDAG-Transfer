@@ -446,6 +446,12 @@ export const RaffleModal: React.FC<RaffleModalProps> = ({ isOpen, onClose, userB
                         <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5 relative overflow-hidden group hover:border-rose-500/50 transition-all">
                             <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-50"></div>
                             <Trophy className="absolute -top-4 -right-4 w-24 h-24 text-rose-500 opacity-10 group-hover:opacity-20 transition-all transform rotate-12" />
+                            <div className="absolute top-4 right-4 z-20 group/info">
+                                <Info className="w-4 h-4 text-white/40 hover:text-rose-500 cursor-help transition-colors" />
+                                <div className="absolute top-6 right-0 w-64 bg-slate-800 border border-rose-500/50 rounded-lg p-3 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all shadow-xl">
+                                    <p className="text-xs text-white/90">80% of the prize pool is distributed to raffle winners across multiple tiers. The top prize winner receives the largest share, with decreasing amounts for subsequent tiers.</p>
+                                </div>
+                            </div>
                             <div className="flex items-center gap-2 text-rose-500 mb-4 relative z-10">
                                 <Activity className="w-4 h-4" /> <span className="font-bold text-sm uppercase tracking-wider">Winners (80%)</span>
                             </div>
@@ -460,6 +466,12 @@ export const RaffleModal: React.FC<RaffleModalProps> = ({ isOpen, onClose, userB
                          <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5 relative overflow-hidden group hover:border-cyan-400/50 transition-all">
                             <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/5 to-transparent opacity-50"></div>
                             <Zap className="absolute -top-4 -right-4 w-24 h-24 text-cyan-400 opacity-10 group-hover:opacity-20 transition-all transform rotate-12" />
+                            <div className="absolute top-4 right-4 z-20 group/info">
+                                <Info className="w-4 h-4 text-white/40 hover:text-cyan-400 cursor-help transition-colors" />
+                                <div className="absolute top-6 right-0 w-64 bg-slate-800 border border-cyan-400/50 rounded-lg p-3 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all shadow-xl">
+                                    <p className="text-xs text-white/90">12% of the prize pool funds ecosystem development grants. This supports developers, creators, and community initiatives that grow the BlockDAG ecosystem.</p>
+                                </div>
+                            </div>
                             <div className="flex items-center gap-2 text-cyan-400 mb-4 relative z-10">
                                 <Zap className="w-4 h-4" /> <span className="font-bold text-sm uppercase tracking-wider">Grants (12%)</span>
                             </div>
@@ -474,13 +486,19 @@ export const RaffleModal: React.FC<RaffleModalProps> = ({ isOpen, onClose, userB
                          <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5 relative overflow-hidden group hover:border-purple-500/50 transition-all">
                             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-50"></div>
                             <RefreshCw className="absolute -top-4 -right-4 w-24 h-24 text-purple-500 opacity-10 group-hover:opacity-20 transition-all transform rotate-12" />
+                            <div className="absolute top-4 right-4 z-20 group/info">
+                                <Info className="w-4 h-4 text-white/40 hover:text-purple-500 cursor-help transition-colors" />
+                                <div className="absolute top-6 right-0 w-64 bg-slate-800 border border-purple-500/50 rounded-lg p-3 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all shadow-xl">
+                                    <p className="text-xs text-white/90">8% of the prize pool is held in escrow for strategic buybacks. Similar to XRP's escrow mechanism, these funds are released on a schedule to support market stability and token value.</p>
+                                </div>
+                            </div>
                             <div className="flex items-center gap-2 text-purple-500 mb-4 relative z-10">
                                 <TrendingUp className="w-4 h-4" /> <span className="font-bold text-sm uppercase tracking-wider">Buybacks (8%)</span>
                             </div>
                             <div className="text-3xl font-black text-white mb-4 relative z-10">${stats.buybackPool.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
                             <div className="border-t border-white/10 pt-3 relative z-10">
                                 <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block">Mechanism</span>
-                                <span className="text-sm font-bold text-purple-500 uppercase">Deflationary Burn</span>
+                                <span className="text-sm font-bold text-purple-500 uppercase">Escrow</span>
                             </div>
                         </div>
                     </div>
