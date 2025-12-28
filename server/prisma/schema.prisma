@@ -45,7 +45,7 @@ model EquippedSet {
   id        String   @id @default(cuid())
   user      User     @relation(fields: [userId], references: [id])
   userId    String
-  sets      Json
+  sets      String   @default("{}")
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 }

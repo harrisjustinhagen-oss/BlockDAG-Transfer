@@ -1,16 +1,32 @@
 import Fastify from 'fastify';
-import cors from 'fastify-cors';
+import cors from '@fastify/cors';
 import { registerRoutes } from './routes';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const PORT = Number(process.env.PORT || 4000);
-const ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:3001', 
+  'http://localhost:3002',
+  'http://localhost:3003',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000'
+];
 
 async function main() {
   const app = Fastify({ logger: true });
-  app.register(cors, { origin: ORIGIN, credentials: true });
+  app.register(cors, { 
+    origin: (origin, callback) => {
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS not allowed'), false);
+      }
+    },
+    credentials: true 
+  });
 
   await registerRoutes(app);
 

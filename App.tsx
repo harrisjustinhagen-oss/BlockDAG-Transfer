@@ -1,6 +1,10 @@
 
 import React, { useState, useRef, useEffect, ReactNode, useMemo } from 'react';
 import { ActiveView, Task, Badge as BadgeType, Receipt, DaoProposal } from './types';
+import { auth as firebaseAuth } from './services/firebaseConfig';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import CinemagraphLoginScreen from './components/auth/CinemagraphLoginScreen';
 import { WalletIcon } from './components/icons/WalletIcon';
 import { AppsIcon } from './components/icons/AppsIcon';
 import { GamesIcon } from './components/icons/GamesIcon';
@@ -54,8 +58,15 @@ import { FolderIcon } from './components/icons/FolderIcon';
 import { SketchItGame } from './components/games/sketchit/SketchItGame';
 import { UnoGame } from './components/games/uno/UnoGame';
 import { auth, db, User } from './services/mockFirebase'; // Import mock services
+import fitbitService from './services/fitbitService'; // Import Fitbit service
 import { RaffleModal } from './components/raffle/RaffleModal'; // Import new RaffleModal
 import MiningApp from './components/mining/MiningApp'; // Import new MiningApp
+import AvatarViewer from './components/profile/AvatarViewer'; // Import 3D avatar viewer
+import { avatarService } from './services/avatarService'; // Import avatar generation service
+import { AvatarCustomizer, AvatarData } from './components/profile/AvatarCustomizer'; // Import avatar customizer
+import Avatar3DPreview from './components/profile/Avatar3DPreview'; // Import avatar 3D preview
+import FullBodyAvatar from './components/profile/FullBodyAvatar'; // Import full body avatar
+import SmartAvatarGenerator from './components/profile/SmartAvatarGenerator'; // Import smart avatar generator
 
 declare global {
     interface Window {
@@ -307,7 +318,8 @@ const WalletPanel = ({
     onConnectWallet,
     onDisconnectWallet,
     walletError,
-    isConnectingWallet
+    isConnectingWallet,
+    onBack
 }: { 
     bdagBalance: number, 
     onOpenTransactions: () => void, 
@@ -317,15 +329,27 @@ const WalletPanel = ({
     onConnectWallet: () => void,
     onDisconnectWallet: () => void,
     walletError: string | null,
-    isConnectingWallet: boolean
+    isConnectingWallet: boolean,
+    onBack: () => void
 }) => {
     const BDAG_PRICE_USD = 0.05;
     const usdValue = bdagBalance * BDAG_PRICE_USD;
 
     return (
         <div className="p-6 text-center animate-fadeIn">
-            <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-cyan-300">Wallet</h2>
+            <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={onBack}
+                        className="px-2 py-1 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-200 flex items-center gap-1"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                        <span>Back</span>
+                    </button>
+                    <h2 className="text-2xl font-bold text-cyan-300">Wallet</h2>
+                </div>
                 {walletAddress ? (
                      <div className="flex flex-col items-end gap-1">
                         <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 px-3 py-1.5 rounded-full">
@@ -1202,80 +1226,392 @@ const SmartWatchModal = ({ isOpen, onClose, connectedWatch, onConnect, onDisconn
     if (!isOpen) return null;
     const [isScanning, setIsScanning] = useState(false);
     const [devices, setDevices] = useState<string[]>([]);
+    const [bluetoothAvailable, setBluetoothAvailable] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [manualDeviceName, setManualDeviceName] = useState('');
+    const [showManualInput, setShowManualInput] = useState(false);
+    const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
     useEffect(() => {
         if(isOpen && !connectedWatch) {
             setDevices([]);
             setIsScanning(false);
+            checkBluetoothAvailability();
         }
     }, [isOpen, connectedWatch]);
 
-    const handleScan = () => {
+    const checkBluetoothAvailability = async () => {
+        const available = navigator.bluetooth !== undefined;
+        setBluetoothAvailable(available);
+        if (!available) {
+            setError('Bluetooth not available on this device');
+        }
+    };
+
+    const handleConnect = (deviceName: string) => {
+        // Start syncing data from the watch
+        startWatchSync(deviceName);
+        onConnect(deviceName);
+    };
+
+    const startWatchSync = async (deviceName: string) => {
+        console.log('Starting watch data sync for:', deviceName);
+        try {
+            const { fetchSmartWatchData } = await import('./services/bluetoothService');
+            
+            // Fetch initial data
+            const data = await fetchSmartWatchData(deviceName);
+            if (data) {
+                console.log('Fetched initial data:', data);
+                // This will be handled by parent component through onConnect
+            }
+            
+            setLastSyncTime(new Date());
+            setError(null);
+        } catch (err) {
+            console.error('Failed to sync watch data:', err);
+            setError('Connected but failed to sync data. Check console.');
+        }
+    };
+
+    const handleGenericScan = async () => {
         setIsScanning(true);
         setDevices([]);
-        // Simulate scanning
-        setTimeout(() => {
-            setDevices(["Ultra Watch Series 9", "Pixel Watch 3", "Galaxy Watch 6"]);
+        setError(null);
+
+        try {
+            if (!navigator.bluetooth) {
+                setError('Bluetooth not supported. Using mock devices for demonstration.');
+                const { getMockSmartWatches } = await import('./services/bluetoothService');
+                setTimeout(() => {
+                    const mockDevices = getMockSmartWatches();
+                    setDevices(mockDevices.map(d => d.name));
+                    setIsScanning(false);
+                }, 1500);
+                return;
+            }
+
+            console.log('Starting generic Bluetooth scan (no name filters)...');
+
+            // Generic scan without strict name filters
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [
+                        { services: ['generic_access'] },
+                    ],
+                    optionalServices: [
+                        '0000180a-0000-1000-8000-00805f9b34fb',
+                        '0000180d-0000-1000-8000-00805f9b34fb',
+                        '0000181d-0000-1000-8000-00805f9b34fb',
+                    ]
+                });
+
+                if (device && device.name) {
+                    console.log('Found device:', device.name);
+                    setDevices(prev => [...prev, device.name!]);
+                } else {
+                    setError('Device selected but no name found. Try manual entry.');
+                }
+            } catch (err: any) {
+                if (err.name === 'NotFoundError') {
+                    setError('No devices found. Make sure your watch is turned on and discoverable.');
+                } else {
+                    throw err;
+                }
+            }
+
             setIsScanning(false);
-        }, 2000);
+        } catch (err: any) {
+            console.error('Scan error:', err);
+            setError(`Scan failed: ${err.message || 'Unknown error'}`);
+            setIsScanning(false);
+        }
+    };
+
+    const handleScan = async () => {
+        setIsScanning(true);
+        setDevices([]);
+        setError(null);
+
+        try {
+            if (!navigator.bluetooth) {
+                setError('Bluetooth not supported. Using mock devices for demonstration.');
+                const { getMockSmartWatches } = await import('./services/bluetoothService');
+                setTimeout(() => {
+                    const mockDevices = getMockSmartWatches();
+                    setDevices(mockDevices.map(d => d.name));
+                    setIsScanning(false);
+                }, 1500);
+                return;
+            }
+
+            console.log('Starting Bluetooth scan with specific filters...');
+
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [
+                        { namePrefix: 'Versa' },
+                        { namePrefix: 'Galaxy Watch' },
+                        { namePrefix: 'Pixel Watch' },
+                        { namePrefix: 'Watch Series' },
+                        { namePrefix: 'Garmin' },
+                        { namePrefix: 'Fossil' },
+                        { namePrefix: 'Mi Band' },
+                        { namePrefix: 'Wear OS' },
+                    ],
+                    optionalServices: [
+                        '0000180a-0000-1000-8000-00805f9b34fb',
+                        '0000180d-0000-1000-8000-00805f9b34fb'
+                    ]
+                });
+
+                if (device && device.name) {
+                    console.log('Found device:', device.name);
+                    setDevices(prev => [...prev, device.name!]);
+                }
+            } catch (filterError: any) {
+                console.log('Specific filter error:', filterError.message);
+                
+                if (filterError.name === 'NotFoundError') {
+                    setError('No smartwatches with standard names found. Try "Generic Scan" or manual entry.');
+                } else {
+                    throw filterError;
+                }
+            }
+
+            setIsScanning(false);
+        } catch (err: any) {
+            console.error('Scan error:', err);
+            
+            if (err.name === 'NotFoundError') {
+                setError('No smartwatches found. Make sure your watch is in pairing mode.');
+            } else if (err.name === 'SecurityError') {
+                setError('Bluetooth permission denied. Check browser settings.');
+            } else {
+                setError(`Scan failed: ${err.message || 'Unknown error'}`);
+            }
+            setIsScanning(false);
+        }
+    };
+
+    const handleManualConnect = () => {
+        if (manualDeviceName.trim()) {
+            handleConnect(manualDeviceName.trim());
+            setManualDeviceName('');
+            setShowManualInput(false);
+        }
     };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn" onClick={onClose}>
             <div className="bg-[var(--bg-panel-solid)] p-6 rounded-2xl w-full max-w-md m-4 border border-[var(--border-color)] shadow-2xl" onClick={e => e.stopPropagation()}>
-                <h2 className="text-2xl font-bold mb-4 text-teal-300 flex items-center gap-2">
-                    <SmartWatchIcon className="w-6 h-6" /> Smart Watch
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-2xl font-bold text-teal-300 flex items-center gap-2">
+                        <SmartWatchIcon className="w-6 h-6" /> Smart Watch
+                    </h2>
+                    <button 
+                        onClick={onClose}
+                        className="text-slate-400 hover:text-white text-2xl font-bold"
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                {error && (
+                    <div className="mb-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg text-yellow-400 text-sm">
+                        {error}
+                    </div>
+                )}
+
+                {/* Fitbit OAuth Section */}
+                <div className="mb-6 p-4 bg-blue-900/20 border border-blue-600/50 rounded-xl">
+                    <h3 className="font-bold text-blue-300 mb-2 flex items-center gap-2">
+                        <span>📱</span> Fitbit Account
+                    </h3>
+                    <p className="text-xs text-slate-400 mb-3">
+                        Connect your real Fitbit device for automatic health data sync
+                    </p>
+                    {fitbitService.isAuthenticated() ? (
+                        <div className="space-y-2">
+                            <div className="p-2 bg-green-900/20 border border-green-600/50 rounded-lg text-green-300 text-sm">
+                                ✓ Fitbit Connected
+                            </div>
+                            <button 
+                                onClick={async () => {
+                                    try {
+                                        const data = await fitbitService.getTodayHealthData();
+                                        if (data) {
+                                            alert(`Health Data Synced!\nSteps: ${data.steps}\nCalories: ${data.calories}\nSleep Score: ${data.sleepScore}`);
+                                            // Update character stats based on health data
+                                            const dexBonus = Math.floor(data.steps / 7500 * 2);
+                                            const strBonus = Math.floor(data.stairs / 25 * 2);
+                                            const conBonus = Math.max(0, (data.sleepScore - 60) / 17.5);
+                                            const chaBonus = Math.floor((data.calories - 1500) / 1000 * 2);
+                                            console.log(`Stat Bonuses - DEX: +${dexBonus}, STR: +${strBonus}, CON: +${conBonus.toFixed(1)}, CHA: +${chaBonus}`);
+                                        }
+                                    } catch (err) {
+                                        console.error('Error syncing health data:', err);
+                                        alert('Failed to sync health data');
+                                    }
+                                }}
+                                className="w-full px-4 py-2 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition-colors text-sm"
+                            >
+                                🔄 Sync Health Data
+                            </button>
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={() => fitbitService.startOAuthFlow()}
+                            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors text-sm"
+                        >
+                            🔗 Connect Fitbit Account
+                        </button>
+                    )}
+                </div>
+
                 {connectedWatch ? (
                     <div className="text-center py-8">
                         <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/50">
                             <SmartWatchIcon className="w-10 h-10 text-green-400" />
                         </div>
                         <p className="text-lg font-semibold text-white mb-2">{connectedWatch}</p>
-                        <p className="text-sm text-green-400 mb-6">● Connected via Bluetooth</p>
-                        <button onClick={onDisconnect} className="px-4 py-2 bg-red-500/20 text-red-300 border border-red-500/50 rounded-lg hover:bg-red-500/30 transition-colors">
+                        <p className="text-sm text-green-400 mb-2 flex items-center justify-center gap-1">
+                            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                            Connected via Bluetooth
+                        </p>
+                        {lastSyncTime && (
+                            <p className="text-xs text-slate-400 mb-6">
+                                Last sync: {lastSyncTime.toLocaleTimeString()}
+                            </p>
+                        )}
+                        <button 
+                            onClick={onDisconnect} 
+                            className="px-4 py-2 bg-red-500/20 text-red-300 border border-red-500/50 rounded-lg hover:bg-red-500/30 transition-colors"
+                        >
                             Disconnect Device
                         </button>
                     </div>
                 ) : (
                     <div>
-                         {!isScanning && devices.length === 0 ? (
-                            <div className="text-center py-8">
-                                <p className="text-slate-400 mb-6">Ensure your watch is in pairing mode.</p>
-                                <button 
-                                    onClick={handleScan}
-                                    className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-blue-900/20"
-                                >
-                                    Scan for Devices
-                                </button>
+                        {!bluetoothAvailable && (
+                            <div className="text-center py-8 bg-slate-800/50 rounded-lg p-4 mb-4">
+                                <p className="text-slate-400 mb-4">⚠️ Bluetooth is not available on your device</p>
+                                <p className="text-sm text-slate-500">Note: You're seeing mock smartwatch devices for testing</p>
+                            </div>
+                        )}
+
+                        {!isScanning && devices.length === 0 ? (
+                            <div className="text-center py-8 space-y-4">
+                                <p className="text-slate-400">Make sure your smartwatch is nearby and discoverable.</p>
+                                
+                                {!showManualInput ? (
+                                    <div className="space-y-3">
+                                        <button 
+                                            onClick={handleScan}
+                                            className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-blue-900/20"
+                                        >
+                                            Scan for Smart Watches
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={handleGenericScan}
+                                            className="w-full px-6 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold rounded-xl transition-colors text-sm"
+                                        >
+                                            Generic Scan (Any Device)
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={() => setShowManualInput(true)}
+                                            className="w-full px-6 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold rounded-xl transition-colors text-sm"
+                                        >
+                                            Enter Device Name Manually
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <input
+                                            type="text"
+                                            value={manualDeviceName}
+                                            onChange={(e) => setManualDeviceName(e.target.value)}
+                                            placeholder="e.g., Versa 2, Galaxy Watch, etc."
+                                            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                                            onKeyPress={(e) => e.key === 'Enter' && handleManualConnect()}
+                                        />
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={handleManualConnect}
+                                                disabled={!manualDeviceName.trim()}
+                                                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-slate-700 text-white font-semibold rounded-lg transition-colors"
+                                            >
+                                                Connect
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    setShowManualInput(false);
+                                                    setManualDeviceName('');
+                                                }}
+                                                className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold rounded-lg transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <>
                                 <p className="text-slate-400 mb-4 flex items-center gap-2">
-                                    {isScanning ? <span className="animate-spin">⟳</span> : null}
-                                    {isScanning ? "Scanning for devices..." : "Available Devices:"}
+                                    {isScanning ? (
+                                        <>
+                                            <span className="animate-spin inline-block">⟳</span>
+                                            Scanning for smartwatches...
+                                        </>
+                                    ) : (
+                                        <>
+                                            📱 Available Smartwatches:
+                                        </>
+                                    )}
                                 </p>
                                 <div className="space-y-2 min-h-[150px]">
-                                    {devices.map((device, idx) => (
-                                        <button key={idx} onClick={() => onConnect(device)} className="w-full p-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-left flex items-center justify-between group transition-all">
-                                            <span className="font-semibold text-slate-200">{device}</span>
-                                            <span className="text-xs bg-slate-900 text-slate-500 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">Connect</span>
-                                        </button>
-                                    ))}
-                                    {isScanning && devices.length === 0 && (
-                                         <div className="text-center py-4 text-slate-500 italic">Searching...</div>
+                                    {devices.length > 0 ? (
+                                        devices.map((device, idx) => (
+                                            <button 
+                                                key={idx} 
+                                                onClick={() => handleConnect(device)} 
+                                                className="w-full p-4 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-left flex items-center justify-between group transition-all hover:border-cyan-500"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <SmartWatchIcon className="w-5 h-5 text-cyan-400" />
+                                                    <span className="font-semibold text-slate-200">{device}</span>
+                                                </div>
+                                                <span className="text-xs bg-slate-900 text-slate-400 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    Connect →
+                                                </span>
+                                            </button>
+                                        ))
+                                    ) : isScanning ? (
+                                        <div className="text-center py-6 text-slate-500">
+                                            <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                                            Searching nearby devices...
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-6 text-slate-500">
+                                            No smartwatches found. Try again.
+                                        </div>
                                     )}
                                 </div>
-                                {!isScanning && (
-                                     <button onClick={handleScan} className="mt-4 text-sm text-blue-400 hover:underline">Rescan</button>
+                                {!isScanning && devices.length > 0 && (
+                                    <button 
+                                        onClick={handleScan}
+                                        className="w-full mt-4 py-2 text-sm text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-lg hover:border-blue-500 transition-colors"
+                                    >
+                                        Scan Again
+                                    </button>
                                 )}
                             </>
                         )}
                     </div>
                 )}
-                 <button onClick={onClose} className="mt-6 w-full py-3 bg-slate-800 text-slate-400 font-bold rounded-xl hover:bg-slate-700 transition-colors">
-                    Close
-                </button>
             </div>
         </div>
     );
@@ -1848,11 +2184,11 @@ const TaxModal = ({ isOpen, onClose, receipts, balance }: any) => {
                                         <div className="mt-3 grid grid-cols-3 gap-3 items-end">
                                             <div>
                                                 <div className="text-xs text-slate-400">Short-term tax rate (%)</div>
-                                                <input type="number" min="0" step="0.1" className="w-full bg-slate-700 p-1 rounded mt-1 text-sm" value={shortRatePct} onChange={e=>setShortRatePct(parseFloat(e.target.value||'0'))} />
+                                                <input id="shortRatePct" name="shortRatePct" type="number" min="0" step="0.1" className="w-full bg-slate-700 p-1 rounded mt-1 text-sm" value={shortRatePct} onChange={e=>setShortRatePct(parseFloat(e.target.value||'0'))} />
                                             </div>
                                             <div>
                                                 <div className="text-xs text-slate-400">Long-term tax rate (%)</div>
-                                                <input type="number" min="0" step="0.1" className="w-full bg-slate-700 p-1 rounded mt-1 text-sm" value={longRatePct} onChange={e=>setLongRatePct(parseFloat(e.target.value||'0'))} />
+                                                <input id="longRatePct" name="longRatePct" type="number" min="0" step="0.1" className="w-full bg-slate-700 p-1 rounded mt-1 text-sm" value={longRatePct} onChange={e=>setLongRatePct(parseFloat(e.target.value||'0'))} />
                                             </div>
                                             <div className="bg-slate-900 p-2 rounded">
                                                 <div className="text-xs text-slate-400">Estimated Tax Due</div>
@@ -1969,39 +2305,171 @@ const MiningModal = ({ isOpen, onClose, isPremium }: { isOpen: boolean, onClose:
     );
 };
 
-const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimTask, onClaimBadge, claimedXpInfo, onOpenLevelRewards, isPremium, onActivatePremium, onEditProfile, onNewProfile, onOpenSmartWatch, connectedWatch }: any) => {
+const FriendsPanel = ({ friends, party, user }: any) => {
+    return (
+        <div className="max-w-2xl mx-auto px-4 pt-4 pb-24 space-y-6">
+            {/* TEAM BUFFS: Group Slots */}
+            <div>
+                <GroupSlots handle={user} />
+            </div>
+
+            {/* FRIENDS LIST */}
+            <div>
+                <h3 className="text-lg font-bold text-indigo-300 mb-3">Friends ({friends.length})</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {friends.map((friend: any) => (
+                        <div key={friend.id} className="bg-[var(--bg-panel)] p-2.5 rounded-lg flex items-center justify-between border border-[var(--border-color)]">
+                            <div className="flex items-center gap-2">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-xs ${friend.isBlockdagFriend ? 'bg-indigo-600' : 'bg-slate-600'}`}>
+                                    {friend.name[0]}
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-xs text-white">{friend.name}</p>
+                                    <div className="flex items-center gap-1">
+                                        <div className={`w-2 h-2 rounded-full ${friend.status === 'online' ? 'bg-green-500' : 'bg-slate-500'}`}></div>
+                                        <span className="text-xs text-slate-400 capitalize">{friend.status}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {friend.isBlockdagFriend && (
+                                <div className="bg-indigo-500/20 p-1 rounded" title="BlockDAG User">
+                                    <BlockDAGIcon className="w-3 h-3 text-indigo-400" />
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimTask, onClaimBadge, claimedXpInfo, onOpenLevelRewards, isPremium, onActivatePremium, onEditProfile, onNewProfile, onOpenSmartWatch, connectedWatch, bdagBalance, onOpenWallet, walletAddress, onLogout }: any) => {
     const [showProfileMenu, setShowProfileMenu] = React.useState(false);
     const [showEditModal, setShowEditModal] = React.useState(false);
     const [showNewModal, setShowNewModal] = React.useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
+    const [showAvatarCustomizer, setShowAvatarCustomizer] = React.useState(false);
     const [editName, setEditName] = React.useState<string>(user || '');
+    const [editBio, setEditBio] = React.useState<string>('');
+    const [editEmail, setEditEmail] = React.useState<string>('');
+    const [editLocation, setEditLocation] = React.useState<string>('');
+    const [editAvatarUrl, setEditAvatarUrl] = React.useState<string | null>(null);
     const [newName, setNewName] = React.useState<string>('');
     const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
+    const [avatarModelData, setAvatarModelData] = React.useState<string | null>(null); // 3D model data
     const videoRef = React.useRef<HTMLVideoElement | null>(null);
     const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
     const [streamActive, setStreamActive] = React.useState(false);
     const [capturedDataUrl, setCapturedDataUrl] = React.useState<string | null>(null);
+    const [pixelStreamingUrl, setPixelStreamingUrl] = React.useState<string>('http://localhost:3001');
+    const [ue5HeadshotDataUrl, setUe5HeadshotDataUrl] = React.useState<string | null>(null);
+    const [isGeneratingAvatar, setIsGeneratingAvatar] = React.useState(false);
+    const [avatarGenerationError, setAvatarGenerationError] = React.useState<string | null>(null);
 
-    React.useEffect(() => { setEditName(user || ''); }, [user]);
+    React.useEffect(() => { 
+        setEditName(user || '');
+        try {
+            const storedBio = localStorage.getItem(`profileBio:${user}`);
+            const storedEmail = localStorage.getItem(`profileEmail:${user}`);
+            const storedLocation = localStorage.getItem(`profileLocation:${user}`);
+            setEditBio(storedBio || '');
+            setEditEmail(storedEmail || '');
+            setEditLocation(storedLocation || '');
+        } catch (e) { console.error(e); }
+    }, [user]);
 
-    const openEdit = () => { setShowProfileMenu(false); setShowEditModal(true); };
-    const openNew = () => { setShowProfileMenu(false); setShowNewModal(true); };
+    const openEdit = () => { 
+        setShowProfileMenu(false); 
+        setEditAvatarUrl(avatarUrl);
+        setUe5HeadshotDataUrl(null);
+        setShowEditModal(true); 
+    };
+    const openNew = () => { 
+        setShowProfileMenu(false); 
+        setUe5HeadshotDataUrl(null);
+        setAvatarModelData(null);
+        setAvatarGenerationError(null);
+        setNewName('');
+        setShowAvatarCustomizer(true);
+    };
+
+    const handleAvatarCreated = (avatarData: AvatarData) => {
+        // Store avatar settings as JSON string
+        const avatarSettings = JSON.stringify(avatarData);
+        setAvatarModelData(avatarSettings);
+        setShowAvatarCustomizer(false);
+    };
 
     const saveEdit = () => {
-        try { onEditProfile?.(editName); } catch (e) { }
+        try { 
+            onEditProfile?.(editName);
+            // Save personal info
+            localStorage.setItem(`profileBio:${editName}`, editBio);
+            localStorage.setItem(`profileEmail:${editName}`, editEmail);
+            localStorage.setItem(`profileLocation:${editName}`, editLocation);
+            // Save avatar if updated
+            if (editAvatarUrl) {
+                localStorage.setItem(`profileAvatar:${editName}`, editAvatarUrl);
+                setAvatarUrl(editAvatarUrl);
+            }
+        } catch (e) { console.error(e); }
         setShowEditModal(false);
     };
     const saveNew = () => {
         try {
             onNewProfile?.(newName);
-            // persist avatar for this profile if captured
-            if (capturedDataUrl) {
-                try { localStorage.setItem(`profileAvatar:${newName}`, capturedDataUrl); } catch (e) { console.error(e); }
-                setAvatarUrl(capturedDataUrl);
+            // persist avatar customizer settings for this profile
+            if (avatarModelData) {
+                try { localStorage.setItem(`profileAvatarSettings:${newName}`, avatarModelData); } catch (e) { console.error(e); }
             }
         } catch (e) { }
-        stopStream();
-        setCapturedDataUrl(null);
+        setNewName('');
+        setAvatarModelData(null);
+        setAvatarGenerationError(null);
         setShowNewModal(false);
+    };
+
+    const generateAvatarFrom3D = async () => {
+        if (!ue5HeadshotDataUrl) {
+            setAvatarGenerationError('Please upload a headshot first');
+            return;
+        }
+        
+        setIsGeneratingAvatar(true);
+        setAvatarGenerationError(null);
+        
+        try {
+            // Extract base64 from data URL if needed
+            let imageData = ue5HeadshotDataUrl;
+            if (imageData.startsWith('data:')) {
+                imageData = imageData.split(',')[1];
+            }
+            
+            // Call avatar service to generate 3D avatar from photo
+            const response = await avatarService.generateAvatarFromPhoto(imageData);
+            
+            if (response.success && response.modelData) {
+                // Check if this is mock mode (no API key configured)
+                if (response.isMockMode || response.modelData === 'MOCK_PLACEHOLDER') {
+                    setAvatarGenerationError('Mock mode: Add VITE_AVATURN_API_KEY to generate real avatars. Using photo as preview.');
+                    // In mock mode, use the photo as the avatar instead
+                    setAvatarUrl(ue5HeadshotDataUrl);
+                    setAvatarModelData(null); // Don't try to load 3D model
+                } else {
+                    setAvatarModelData(response.modelData);
+                    // Also save static image for preview
+                    setAvatarUrl(ue5HeadshotDataUrl);
+                }
+            } else {
+                setAvatarGenerationError(response.error || 'Failed to generate avatar');
+            }
+        } catch (error: any) {
+            setAvatarGenerationError(error.message || 'Avatar generation failed');
+            console.error('Avatar generation error:', error);
+        } finally {
+            setIsGeneratingAvatar(false);
+        }
     };
 
     const startStream = async () => {
@@ -2053,44 +2521,208 @@ const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimT
         }
     };
 
+    const handleHeadshotUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        try {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = reader.result as string;
+                setUe5HeadshotDataUrl(result);
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            console.error('avatar upload failed', err);
+        }
+    };
+
+    const handleEditAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        try {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = reader.result as string;
+                setEditAvatarUrl(result);
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            console.error('avatar upload failed', err);
+        }
+    };
+
+    const handleMetaHumanGLBUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        try {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            
+            // Validate it's a .glb file
+            if (!file.name.endsWith('.glb') && file.type !== 'application/octet-stream') {
+                setAvatarGenerationError('Please upload a .glb file from MetaHuman Creator');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const result = reader.result as string;
+                setIsGeneratingAvatar(true);
+                setAvatarGenerationError(null);
+                
+                try {
+                    // Validate the GLB file
+                    const validation = await avatarService.validateMetaHumanExport(result);
+                    if (validation.success && validation.modelData) {
+                        setAvatarModelData(validation.modelData);
+                        // Also set a preview thumbnail
+                        setAvatarUrl(null);
+                        setAvatarGenerationError(null);
+                    } else {
+                        setAvatarGenerationError(validation.error || 'Invalid GLB file');
+                    }
+                } catch (error: any) {
+                    setAvatarGenerationError(error.message || 'Failed to load MetaHuman export');
+                } finally {
+                    setIsGeneratingAvatar(false);
+                }
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            console.error('MetaHuman upload failed', err);
+            setAvatarGenerationError('Failed to upload MetaHuman export');
+        }
+    };
+
     React.useEffect(() => {
         // load avatar for current user
         try {
-            const stored = localStorage.getItem(`profileAvatar:${user}`);
-            if (stored) setAvatarUrl(stored);
-            else setAvatarUrl(null);
+            const storedSettings = localStorage.getItem(`profileAvatarSettings:${user}`);
+            if (storedSettings) setAvatarModelData(storedSettings);
+            else setAvatarModelData(null);
         } catch (e) { console.error(e); }
     }, [user]);
 
     return (
         <div className="p-4 md:p-6 animate-fadeIn overflow-y-auto">
+            {/* WALLET BUTTON */}
+            <div className="mb-4">
+                <button
+                    onClick={onOpenWallet}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300"
+                >
+                    <WalletIcon className="w-4 h-4" />
+                    <span className="text-sm font-semibold">Wallet</span>
+                    {walletAddress && (
+                        <span className="ml-2 text-[10px] font-mono text-green-400">
+                            {walletAddress.slice(0, 4)}...{walletAddress.slice(-3)}
+                        </span>
+                    )}
+                </button>
+            </div>
+
             {/* HEADER: Picture, Name, XP Bar */}
             <div className="flex flex-col items-center gap-4 mb-6 pb-4 border-b border-slate-700/50">
                 <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:justify-between">
                     {/* Avatar Section */}
                     <div className="flex-shrink-0 relative">
-                        <div className="w-20 h-20 bg-slate-700 rounded-full overflow-hidden border-4 border-cyan-500 shadow-lg shadow-cyan-500/20">
-                            <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500">
-                                <ProfileIcon className="w-12 h-12" />
-                            </div>
-                        </div>
-                        <button onClick={(e)=>{ e.stopPropagation(); setShowProfileMenu(v=>!v); }} className="absolute bottom-0 right-0 bg-slate-800 p-2 rounded-full border border-slate-600 hover:bg-slate-700 transition-colors">
-                            <PencilIcon className="w-3 h-3 text-white" />
-                        </button>
-
-                        {showProfileMenu && (
-                            <div onClick={e=>e.stopPropagation()} className="absolute bottom-12 right-0 bg-slate-900 border border-slate-700 rounded shadow-md w-40 z-50">
-                                <button onClick={openEdit} className="w-full text-left px-3 py-2 hover:bg-slate-800">Edit Profile</button>
-                                <button onClick={openNew} className="w-full text-left px-3 py-2 hover:bg-slate-800">New Profile</button>
+                        {/* Show 3D Avatar Preview if we have JSON avatar settings, otherwise show static image */}
+                        {avatarModelData && avatarModelData.startsWith('{') ? (
+                            (() => {
+                                try {
+                                    const settings = JSON.parse(avatarModelData) as AvatarData;
+                                    return (
+                                        <Avatar3DPreview 
+                                            avatarSettings={settings}
+                                            size="medium"
+                                            autoRotate={true}
+                                        />
+                                    );
+                                } catch {
+                                    // If parsing fails, show fallback
+                                    return (
+                                        <div className="w-20 h-20 bg-slate-700 rounded-full overflow-hidden border-4 border-cyan-500 shadow-lg shadow-cyan-500/20">
+                                            {avatarUrl ? (
+                                                <img src={avatarUrl} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500">
+                                                    <ProfileIcon className="w-12 h-12" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }
+                            })()
+                        ) : avatarModelData ? (
+                            <AvatarViewer 
+                                modelData={avatarModelData}
+                                size="medium"
+                                isLoading={false}
+                                onError={(err) => console.error('Avatar viewer error:', err)}
+                            />
+                        ) : (
+                            <div className="w-20 h-20 bg-slate-700 rounded-full overflow-hidden border-4 border-cyan-500 shadow-lg shadow-cyan-500/20">
+                                {avatarUrl ? (
+                                    <img src={avatarUrl} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500">
+                                        <ProfileIcon className="w-12 h-12" />
+                                    </div>
+                                )}
                             </div>
                         )}
+                        {/* Edit controls relocated to header actions for clarity */}
 
                         {showEditModal && (
                             <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={()=>setShowEditModal(false)}>
-                                <div className="bg-slate-900 rounded-xl w-full max-w-md p-4" onClick={e=>e.stopPropagation()}>
-                                    <h3 className="text-lg font-bold mb-2">Edit Profile</h3>
-                                    <label className="text-xs text-slate-400">Display name</label>
-                                    <input className="w-full bg-slate-800/60 p-2 rounded mt-1 mb-3" value={editName} onChange={e=>setEditName(e.target.value)} />
+                                <div className="bg-slate-900 rounded-xl w-full max-w-xl p-4 max-h-[90vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
+                                    <h3 className="text-lg font-bold mb-3">Edit Profile</h3>
+                                    
+                                    {/* Avatar Section */}
+                                    <div className="mb-4 bg-slate-800/50 p-3 rounded">
+                                        <label className="text-xs text-slate-400 block mb-2">Avatar</label>
+                                        <div className="flex items-center gap-3">
+                                            {editAvatarUrl ? (
+                                                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-cyan-500">
+                                                    <img src={editAvatarUrl} className="w-full h-full object-cover" />
+                                                </div>
+                                            ) : (
+                                                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-cyan-500 bg-slate-800 flex items-center justify-center">
+                                                    <ProfileIcon className="w-8 h-8 text-slate-500" />
+                                                </div>
+                                            )}
+                                            <div className="flex-1">
+                                                <input id="avatarUpload" name="avatarUpload" type="file" accept="image/*" onChange={handleEditAvatarUpload} className="w-full text-xs" />
+                                                <p className="text-[10px] text-slate-400 mt-1">Upload UE5 exported headshot (PNG/JPG)</p>
+                                            </div>
+                                        </div>
+                                        {editAvatarUrl && (
+                                            <button onClick={()=>setEditAvatarUrl(null)} className="mt-2 text-xs text-red-400 hover:text-red-300">Remove Avatar</button>
+                                        )}
+                                    </div>
+
+                                    {/* Display Name */}
+                                    <div className="mb-3">
+                                        <label className="text-xs text-slate-400 block mb-1">Display Name</label>
+                                        <input id="editName" name="editName" type="text" className="w-full bg-slate-800/60 p-2 rounded" value={editName} onChange={e=>setEditName(e.target.value)} />
+                                    </div>
+
+                                    {/* Bio */}
+                                    <div className="mb-3">
+                                        <label className="text-xs text-slate-400 block mb-1">Bio</label>
+                                        <textarea id="editBio" name="editBio" className="w-full bg-slate-800/60 p-2 rounded h-20 resize-none" value={editBio} onChange={e=>setEditBio(e.target.value)} placeholder="Tell us about yourself..." />
+                                    </div>
+
+                                    {/* Email */}
+                                    <div className="mb-3">
+                                        <label className="text-xs text-slate-400 block mb-1">Email</label>
+                                        <input id="editEmail" name="editEmail" type="email" className="w-full bg-slate-800/60 p-2 rounded" value={editEmail} onChange={e=>setEditEmail(e.target.value)} placeholder="your@email.com" />
+                                    </div>
+
+                                    {/* Location */}
+                                    <div className="mb-4">
+                                        <label className="text-xs text-slate-400 block mb-1">Location</label>
+                                        <input id="editLocation" name="editLocation" type="text" className="w-full bg-slate-800/60 p-2 rounded" value={editLocation} onChange={e=>setEditLocation(e.target.value)} placeholder="City, Country" />
+                                    </div>
+
                                     <div className="flex gap-2 justify-end">
                                         <button onClick={()=>setShowEditModal(false)} className="px-3 py-1 bg-slate-700 rounded">Cancel</button>
                                         <button onClick={saveEdit} className="px-3 py-1 bg-cyan-500 text-white rounded">Save</button>
@@ -2100,42 +2732,73 @@ const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimT
                         )}
 
                         {showNewModal && (
-                            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={()=>{ stopStream(); setShowNewModal(false); }}>
-                                <div className="bg-slate-900 rounded-xl w-full max-w-xl p-4" onClick={e=>e.stopPropagation()}>
-                                    <h3 className="text-lg font-bold mb-2">Create New Profile</h3>
-                                    <label className="text-xs text-slate-400">New display name</label>
-                                    <input className="w-full bg-slate-800/60 p-2 rounded mt-1 mb-3" value={newName} onChange={e=>setNewName(e.target.value)} />
+                            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={()=>{ setAvatarGenerationError(null); setShowNewModal(false); }}>
+                                <div className="bg-slate-900 rounded-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
+                                    <h3 className="text-xl font-bold mb-1 text-white">✨ Create New Profile</h3>
+                                    <p className="text-xs text-slate-400 mb-4">Enter your profile name to get started</p>
 
-                                    <div className="mb-3">
-                                        {!capturedDataUrl ? (
-                                            <div>
-                                                <div className="bg-black rounded-md overflow-hidden mb-2">
-                                                    <video ref={videoRef} className="w-full h-64 object-cover bg-black" playsInline />
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <button onClick={startStream} className="px-3 py-1 bg-cyan-600 text-white rounded">Start Camera</button>
-                                                    <button onClick={capturePhoto} disabled={!streamActive} className="px-3 py-1 bg-amber-500 text-white rounded">Capture</button>
-                                                    <button onClick={stopStream} disabled={!streamActive} className="px-3 py-1 bg-slate-700 text-white rounded">Stop</button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="flex flex-col gap-2">
-                                                <div className="w-48 h-48 rounded-full overflow-hidden mx-auto bg-slate-800">
-                                                    <img src={capturedDataUrl} className="w-full h-full object-cover" />
-                                                </div>
-                                                <div className="flex gap-2 justify-center">
-                                                    <button onClick={()=>{ setCapturedDataUrl(null); setTimeout(()=>startStream(),100); }} className="px-3 py-1 bg-slate-700 text-white rounded">Retake</button>
-                                                    <button onClick={saveNew} className="px-3 py-1 bg-emerald-500 text-white rounded">Create</button>
-                                                </div>
-                                            </div>
-                                        )}
-                                        <canvas ref={canvasRef} style={{ display: 'none' }} />
+                                    {/* Profile Name */}
+                                    <div className="mb-4">
+                                        <label className="text-xs font-semibold text-slate-300 block mb-2">Profile Name</label>
+                                        <input 
+                                            className="w-full bg-slate-800/60 p-2 rounded text-white placeholder-slate-500" 
+                                            value={newName} 
+                                            onChange={e=>setNewName(e.target.value)} 
+                                            placeholder="Enter your profile name"
+                                        />
                                     </div>
 
+                                    {/* Open Customizer Button */}
+                                    <button
+                                        onClick={() => setShowAvatarCustomizer(true)}
+                                        disabled={!newName}
+                                        className="w-full px-4 py-2 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2 mb-4"
+                                    >
+                                        🎨 Customize Avatar
+                                    </button>
+
+                                    {/* Avatar Status */}
+                                    {avatarModelData && (
+                                        <div className="bg-emerald-500/20 border border-emerald-500/50 rounded p-3 mb-4">
+                                            <p className="text-xs text-emerald-300 text-center">✓ Avatar Customized!</p>
+                                        </div>
+                                    )}
+
+                                    {/* Error Display */}
+                                    {avatarGenerationError && (
+                                        <div className="w-full bg-red-500/20 border border-red-500/50 rounded p-2 text-xs text-red-300 mb-4">
+                                            ⚠️ {avatarGenerationError}
+                                        </div>
+                                    )}
+
+                                    {/* Action Buttons */}
                                     <div className="flex gap-2 justify-end">
-                                        <button onClick={()=>{ stopStream(); setShowNewModal(false); }} className="px-3 py-1 bg-slate-700 rounded">Cancel</button>
-                                        {!capturedDataUrl && <button onClick={saveNew} className="px-3 py-1 bg-emerald-500 text-white rounded">Create (no photo)</button>}
+                                        <button 
+                                            onClick={()=>{ setAvatarGenerationError(null); setShowNewModal(false); }} 
+                                            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button 
+                                            onClick={saveNew} 
+                                            disabled={!newName || !avatarModelData}
+                                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all"
+                                        >
+                                            Create Profile
+                                        </button>
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Avatar Customizer Modal */}
+                        {showAvatarCustomizer && (
+                            <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 overflow-y-auto">
+                                <div onClick={e=>e.stopPropagation()}>
+                                    <SmartAvatarGenerator
+                                        onAvatarCreate={handleAvatarCreated}
+                                        onCancel={() => setShowAvatarCustomizer(false)}
+                                    />
                                 </div>
                             </div>
                         )}
@@ -2162,6 +2825,19 @@ const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimT
 
                     {/* Action Buttons */}
                     <div className="flex gap-2">
+                        <button 
+                            onClick={openEdit}
+                            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded flex items-center gap-1 whitespace-nowrap"
+                        >
+                            <PencilIcon className="w-3 h-3" />
+                            Edit Profile
+                        </button>
+                        <button 
+                            onClick={openNew}
+                            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded whitespace-nowrap"
+                        >
+                            New Profile
+                        </button>
                         {!isPremium && (
                             <button 
                                 onClick={onActivatePremium}
@@ -2176,6 +2852,17 @@ const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimT
                         >
                             <SmartWatchIcon className="w-3 h-3" />
                             <span className="font-bold">{connectedWatch ? 'Connected' : 'Watch'}</span>
+                        </button>
+                        <button 
+                            onClick={() => setShowLogoutConfirm(true)}
+                            className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/50 px-2.5 py-1.5 rounded transition-colors whitespace-nowrap flex items-center gap-1"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                <polyline points="16 17 21 12 16 7"></polyline>
+                                <line x1="21" y1="12" x2="9" y2="12"></line>
+                            </svg>
+                            Logout
                         </button>
                     </div>
                 </div>
@@ -2210,39 +2897,69 @@ const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimT
                 </div>
             </div>
 
-            {/* CHARACTER STATS: Health, Armor, Speed */}
-            <div className="mb-6">
-                <div className="bg-gradient-to-r from-slate-900 via-slate-900/80 to-slate-950 border border-slate-800 rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <HeartIcon className="w-4 h-4 text-red-400" />
-                            <p className="text-xs text-slate-300 font-semibold uppercase tracking-[0.18em]">Vitals</p>
+            {/* VITALS & AVATAR: Side-by-side layout */}
+            <div className="mb-6 grid grid-cols-1 lg:grid-cols-4 gap-4">
+                {/* Vitals - Shrunk to left side */}
+                <div className="lg:col-span-1">
+                    <div className="bg-gradient-to-r from-slate-900 via-slate-900/80 to-slate-950 border border-slate-800 rounded-xl p-3 h-full">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                                <HeartIcon className="w-3.5 h-3.5 text-red-400" />
+                                <p className="text-[10px] text-slate-300 font-semibold uppercase tracking-[0.1em]">Vitals</p>
+                            </div>
                         </div>
-                        <span className="text-[11px] text-slate-500">Compact view</span>
-                    </div>
-                    <div className="space-y-2">
-                        {(() => {
-                            const vitals = [
-                                { label: 'Health', valueText: '100 / 100 HP', percent: 100, barClass: 'bg-red-500/80', icon: <HeartIcon className="w-3.5 h-3.5 text-red-300" /> },
-                                { label: 'Armor', valueText: '0 DEF', percent: 0, barClass: 'bg-blue-400/80', icon: <ShieldIcon className="w-3.5 h-3.5 text-blue-300" /> },
-                                { label: 'Speed', valueText: '0% SPD', percent: 0, barClass: 'bg-yellow-400/80', icon: <span className="text-yellow-300 text-xs font-bold">⚡</span> },
-                            ];
-                            return vitals.map(v => (
-                                <div key={v.label} className="space-y-1">
-                                    <div className="flex items-center justify-between text-[11px] text-slate-300">
-                                        <div className="flex items-center gap-2">
-                                            {v.icon}
-                                            <span className="font-semibold uppercase tracking-wide">{v.label}</span>
+                        <div className="space-y-1.5">
+                            {(() => {
+                                const vitals = [
+                                    { label: 'Health', valueText: '100/100 HP', percent: 100, barClass: 'bg-red-500/80', icon: <HeartIcon className="w-3 h-3 text-red-300" /> },
+                                    { label: 'Armor', valueText: '0 DEF', percent: 0, barClass: 'bg-blue-400/80', icon: <ShieldIcon className="w-3 h-3 text-blue-300" /> },
+                                    { label: 'Speed', valueText: '0% SPD', percent: 0, barClass: 'bg-yellow-400/80', icon: <span className="text-yellow-300 text-[10px] font-bold">⚡</span> },
+                                ];
+                                return vitals.map(v => (
+                                    <div key={v.label} className="space-y-0.5">
+                                        <div className="flex items-center justify-between text-[9px] text-slate-300">
+                                            <div className="flex items-center gap-1">
+                                                {v.icon}
+                                                <span className="font-semibold uppercase">{v.label}</span>
+                                            </div>
+                                            <span className="font-mono text-slate-200 text-[8px]">{v.valueText}</span>
                                         </div>
-                                        <span className="font-mono text-slate-200">{v.valueText}</span>
+                                        <div className="h-1.5 rounded-full bg-slate-900/70 border border-slate-800 overflow-hidden">
+                                            <div className={`${v.barClass} h-full`} style={{ width: `${Math.min(100, Math.max(0, v.percent))}%` }}></div>
+                                        </div>
                                     </div>
-                                    <div className="h-2 rounded-full bg-slate-900/70 border border-slate-800 overflow-hidden">
-                                        <div className={`${v.barClass} h-full`} style={{ width: `${Math.min(100, Math.max(0, v.percent))}%` }}></div>
-                                    </div>
-                                </div>
-                            ));
-                        })()}
+                                ));
+                            })()}
+                        </div>
                     </div>
+                </div>
+
+                {/* Full Body Avatar - Right side */}
+                <div className="lg:col-span-3">
+                    {avatarModelData && avatarModelData.startsWith('{') ? (
+                        (() => {
+                            try {
+                                const settings = JSON.parse(avatarModelData) as AvatarData;
+                                return (
+                                    <FullBodyAvatar 
+                                        avatarSettings={settings}
+                                        size="small"
+                                        autoRotate={true}
+                                    />
+                                );
+                            } catch {
+                                return (
+                                    <div className="rounded-lg border-2 border-cyan-500/50 h-96 flex items-center justify-center bg-slate-900/50">
+                                        <p className="text-slate-400 text-sm">Avatar not available</p>
+                                    </div>
+                                );
+                            }
+                        })()
+                    ) : (
+                        <div className="rounded-lg border-2 border-cyan-500/50 h-96 flex items-center justify-center bg-slate-900/50">
+                            <p className="text-slate-400 text-sm">Create avatar to see preview</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -2310,11 +3027,6 @@ const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimT
                 </div>
             </div>
 
-            {/* TEAM BUFFS: Set-based slots */}
-            <div className="mb-6">
-                <GroupSlots handle={user} />
-            </div>
-
             {/* TASKS & BADGES: Side by side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <div>
@@ -2341,43 +3053,138 @@ const ProfilePanel = ({ user, badges, tasks, friends, watchData, party, onClaimT
                     <BadgesView badges={badges} onClaimBadge={onClaimBadge} />
                 </div>
             </div>
-            
-            {/* FRIENDS: Bottom section */}
-            <div className="pt-6 border-t border-slate-700/50">
-                 <h3 className="text-lg font-bold text-indigo-300 mb-3">Friends ({friends.length})</h3>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                     {friends.map((friend: any) => (
-                         <div key={friend.id} className="bg-[var(--bg-panel)] p-2.5 rounded-lg flex items-center justify-between border border-[var(--border-color)]">
-                             <div className="flex items-center gap-2">
-                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-xs ${friend.isBlockdagFriend ? 'bg-indigo-600' : 'bg-slate-600'}`}>
-                                     {friend.name[0]}
-                                 </div>
-                                 <div>
-                                     <p className="font-semibold text-xs text-white">{friend.name}</p>
-                                     <div className="flex items-center gap-1">
-                                         <div className={`w-2 h-2 rounded-full ${friend.status === 'online' ? 'bg-green-500' : 'bg-slate-500'}`}></div>
-                                         <span className="text-xs text-slate-400 capitalize">{friend.status}</span>
-                                     </div>
-                                 </div>
-                             </div>
-                             {friend.isBlockdagFriend && (
-                                 <div className="bg-indigo-500/20 p-1 rounded" title="BlockDAG User">
-                                     <BlockDAGIcon className="w-3 h-3 text-indigo-400" />
-                                 </div>
-                             )}
-                         </div>
-                     ))}
-                 </div>
-            </div>
+
+            {/* Logout Confirmation Modal */}
+            {showLogoutConfirm && (
+                <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4" onClick={() => setShowLogoutConfirm(false)}>
+                    <div className="bg-slate-900 border border-red-500/30 rounded-xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </svg>
+                            </div>
+                            <h3 className="text-lg font-bold text-white">Confirm Logout</h3>
+                        </div>
+                        
+                        <p className="text-slate-300 mb-6">Are you sure you want to logout? You'll need to sign in again to access your account.</p>
+                        
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => setShowLogoutConfirm(false)}
+                                className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    setShowLogoutConfirm(false);
+                                    onLogout?.();
+                                }}
+                                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                    <polyline points="16 17 21 12 16 7"></polyline>
+                                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                                </svg>
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
 
 export default function App() {
-    useEffect(() => { console.log('App mounted'); }, []);
+    // IMPORTANT: All hooks MUST be called unconditionally at the top
+    // Do NOT use early returns before declaring all hooks
+    
+    useEffect(() => {
+        console.log('App mounted');
+        
+        // Handle Fitbit OAuth callback
+        const handleFitbitCallback = async () => {
+          // Remove hash fragment (#_=_) that Fitbit might add
+          if (window.location.hash) {
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+          }
+          
+          const params = new URLSearchParams(window.location.search);
+          const code = params.get('code');
+          const state = params.get('state');
+          const error = params.get('error');
+          
+          if (code && state) {
+            console.log('Fitbit OAuth callback detected, exchanging code for token...');
+            try {
+              const success = await fitbitService.handleOAuthCallback(code, state);
+              if (success) {
+                console.log('✓ Fitbit authentication successful!');
+                // Clean up the URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                // Show success message
+                alert('Fitbit connected successfully! You can now sync your health data.');
+              } else {
+                console.error('Fitbit OAuth callback failed');
+                alert('Failed to connect Fitbit. Please try again.');
+              }
+            } catch (err) {
+              console.error('Error handling Fitbit callback:', err);
+              alert('Error connecting to Fitbit. Please try again.');
+            }
+          } else if (error) {
+            console.error('Fitbit OAuth error:', error);
+            alert(`Fitbit connection failed: ${error}`);
+          }
+        };
+        
+        handleFitbitCallback();
+    }, []);
+    
+    // Auto-sync Fitbit data every 30 seconds
+    useEffect(() => {
+      const syncFitbitData = async () => {
+        if (fitbitService.isAuthenticated()) {
+          try {
+            const data = await fitbitService.getTodayHealthData();
+            if (data) {
+              setWatchData(prev => ({
+                ...prev,
+                steps: data.steps || prev.steps,
+                stairs: data.stairs || prev.stairs,
+                sleepScore: data.sleepScore || prev.sleepScore,
+                calories: data.calories || prev.calories
+              }));
+              console.log('✓ Fitbit data synced:', data);
+            }
+          } catch (err) {
+            console.error('Error syncing Fitbit data:', err);
+          }
+        }
+      };
+      
+      // Sync immediately on mount if authenticated
+      syncFitbitData();
+      
+      // Then sync every 30 seconds
+      const interval = setInterval(syncFitbitData, 30000);
+      return () => clearInterval(interval);
+    }, []);
+    
+    // Auth state
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [authLoading, setAuthLoading] = useState(true);
     const [username, setUsername] = useState('Guest');
-    const [activeView, setActiveView] = useState<ActiveView>('wallet');
+    
+    // View and UI state
+    const [activeView, setActiveView] = useState<ActiveView>('profile');
     const [bdagBalance, setBdagBalance] = useState(12500.0000);
     const [walletAddress, setWalletAddress] = useState<string | null>(null);
     const [walletError, setWalletError] = useState<string | null>(null);
@@ -2410,8 +3217,7 @@ export default function App() {
     // Games state
     const [activeGame, setActiveGame] = useState<'hearts' | 'trivia' | 'sketchit' | 'uno' | 'citybldr' | null>(null);
     
-
-    // Data
+    // Data state - declare ALL useState before any conditional code
     const [watchData, setWatchData] = useState({ 
         steps: 8500, 
         xp: 2450,
@@ -2510,6 +3316,51 @@ export default function App() {
         ];
     });
 
+    const [claimedXpInfo, setClaimedXpInfo] = useState<{ taskId: string; xp: number } | null>(null);
+    
+    // Check Firebase auth state on mount
+    useEffect(() => {
+      const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
+        if (user) {
+          setIsAuthenticated(true);
+          setCurrentUserId(user.uid);
+        } else {
+          setIsAuthenticated(false);
+          setCurrentUserId(null);
+        }
+        setAuthLoading(false);
+      });
+      
+      return () => unsubscribe();
+    }, []);
+
+    // Fetch profile displayName separately
+    useEffect(() => {
+      if (currentUserId) {
+        (async () => {
+          try {
+            const db = getFirestore();
+            const profileDoc = await getDoc(doc(db, 'profiles', currentUserId));
+            console.log('Profile doc exists:', profileDoc.exists());
+            if (profileDoc.exists()) {
+              const profileData = profileDoc.data();
+              console.log('Profile data:', profileData);
+              const displayName = profileData.displayName || 'Guest';
+              console.log('Setting username to:', displayName);
+              setUsername(displayName);
+            } else {
+              console.log('Profile doc does not exist');
+              setUsername('Guest');
+            }
+          } catch (err) {
+            console.error('Error fetching profile:', err);
+            setUsername('Guest');
+          }
+        })();
+      }
+    }, [currentUserId]);
+
+    // Save receipts to localStorage
     useEffect(() => {
         try {
             localStorage.setItem('receipts', JSON.stringify(receipts));
@@ -2518,10 +3369,7 @@ export default function App() {
         }
     }, [receipts]);
 
-    const [claimedXpInfo, setClaimedXpInfo] = useState<{ taskId: string; xp: number } | null>(null);
-
-
-    // Effects
+    // Clear claimed XP info after 2 seconds
     useEffect(() => {
         if (claimedXpInfo) {
             const timer = setTimeout(() => setClaimedXpInfo(null), 2000);
@@ -2529,6 +3377,7 @@ export default function App() {
         }
     }, [claimedXpInfo]);
     
+    // Check wallet connection on mount
     useEffect(() => {
         const checkConnection = async () => {
             if (typeof window.ethereum !== 'undefined') {
@@ -2554,6 +3403,40 @@ export default function App() {
              });
         }
     }, []);
+
+    const handleLoginSuccess = (userId: string, userName: string) => {
+      setCurrentUserId(userId);
+      setUsername(userName);
+      setIsAuthenticated(true);
+    };
+
+    const handleLogout = async () => {
+      try {
+        await signOut(firebaseAuth);
+        setIsAuthenticated(false);
+        setCurrentUserId(null);
+        setUsername('Guest');
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    };
+
+    // Show loading screen if auth is still loading
+    if (authLoading) {
+      return (
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin text-4xl mb-4">⏳</div>
+            <p className="text-slate-400">Loading...</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Show login screen if not authenticated
+    if (!isAuthenticated) {
+      return <CinemagraphLoginScreen onLoginSuccess={handleLoginSuccess} />;
+    }
 
     const handleClaimTask = (taskId: string) => {
         setTasks(prev => prev.map(t => {
@@ -2711,12 +3594,52 @@ export default function App() {
         try { alert?.(`Premium Unlocked\n${plan === 'annual' ? '$100/yr' : '$10/mo'} — ${perk}`); } catch {}
     };
 
-    const handleConnectWatch = (device: string) => {
+    const handleConnectWatch = async (device: string) => {
         setConnectedWatch(device);
         setShowSmartWatchModal(false);
+        
+        // Fetch smartwatch data
+        try {
+            const { fetchSmartWatchData, setupSmartWatchSync } = await import('./services/bluetoothService');
+            
+            // Get initial data
+            const initialData = await fetchSmartWatchData(device);
+            if (initialData) {
+                console.log('Updating watchData with:', initialData);
+                setWatchData(prev => ({
+                    ...prev,
+                    steps: initialData.steps || prev.steps,
+                    stairs: initialData.stairs || prev.stairs,
+                    sleepScore: initialData.sleepScore || prev.sleepScore,
+                    calories: initialData.calories || prev.calories,
+                }));
+            }
+            
+            // Set up continuous sync every 30 seconds
+            const cleanup = setupSmartWatchSync(device, (data: any) => {
+                console.log('Synced watch data:', data);
+                setWatchData(prev => ({
+                    ...prev,
+                    steps: data.steps || prev.steps,
+                    stairs: data.stairs || prev.stairs,
+                    sleepScore: data.sleepScore || prev.sleepScore,
+                    calories: data.calories || prev.calories,
+                }));
+            });
+            
+            // Store cleanup function for when disconnected
+            (window as any).__watchSyncCleanup = cleanup;
+        } catch (err) {
+            console.error('Failed to connect watch:', err);
+        }
     };
 
     const handleDisconnectWatch = () => {
+        // Clean up sync interval
+        if ((window as any).__watchSyncCleanup) {
+            (window as any).__watchSyncCleanup();
+            (window as any).__watchSyncCleanup = null;
+        }
         setConnectedWatch(null);
     };
 
@@ -2795,6 +3718,7 @@ export default function App() {
                     onDisconnectWallet={handleDisconnectWallet}
                     walletError={walletError}
                     isConnectingWallet={isConnectingWallet}
+                    onBack={() => setActiveView('profile')}
                 />;
             case 'apps':
                 return <AppsPanel 
@@ -2829,6 +3753,16 @@ export default function App() {
                     onNewProfile={(newName: string) => setUsername(newName)}
                     onOpenSmartWatch={() => setShowSmartWatchModal(true)}
                     connectedWatch={connectedWatch}
+                    bdagBalance={bdagBalance}
+                    onOpenWallet={() => setActiveView('wallet')}
+                    walletAddress={walletAddress}
+                    onLogout={handleLogout}
+                />;
+            case 'friends':
+                return <FriendsPanel 
+                    friends={friends}
+                    party={party}
+                    user={username}
                 />;
             case 'sponsors':
                 return <SponsorsPanel />;
@@ -2880,6 +3814,16 @@ export default function App() {
                                     </span>
                                 )}
                             </button>
+                            <div className="border-t border-slate-700"></div>
+                            <button 
+                                className="w-full px-4 py-3 text-left text-red-400 hover:bg-red-500/10 transition-colors font-semibold"
+                                onClick={() => {
+                                    setIsPortalMenuOpen(false);
+                                    handleLogout();
+                                }}
+                            >
+                                🚪 Logout
+                            </button>
                         </div>
                     )}
                 </div>
@@ -2924,11 +3868,11 @@ export default function App() {
             <nav className="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-lg border-t border-slate-800 pb-safe z-20">
                 <div className="flex justify-around items-center max-w-2xl mx-auto">
                     <NavButton 
-                        icon={<WalletIcon className="w-6 h-6" />} 
-                        label="Wallet" 
-                        isActive={activeView === 'wallet'} 
-                        onClick={() => setActiveView('wallet')} 
-                        activeColor="text-cyan-400"
+                        icon={<ProfileIcon className="w-6 h-6" />} 
+                        label="Profile" 
+                        isActive={activeView === 'profile'} 
+                        onClick={() => setActiveView('profile')} 
+                        activeColor="text-blue-400"
                     />
                     <NavButton 
                         icon={<AppsIcon className="w-6 h-6" />} 
@@ -2938,11 +3882,11 @@ export default function App() {
                         activeColor="text-purple-400"
                     />
                     <NavButton 
-                        icon={<ProfileIcon className="w-6 h-6" />} 
-                        label="Profile" 
-                        isActive={activeView === 'profile'} 
-                        onClick={() => setActiveView('profile')} 
-                        activeColor="text-blue-400"
+                        icon={<UsersIcon className="w-6 h-6" />} 
+                        label="Friends" 
+                        isActive={activeView === 'friends'} 
+                        onClick={() => setActiveView('friends')} 
+                        activeColor="text-pink-400"
                     />
                     <NavButton 
                         icon={<GamesIcon className="w-6 h-6" />} 

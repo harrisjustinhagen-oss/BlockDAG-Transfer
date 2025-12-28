@@ -148,17 +148,17 @@ const AsicDashboard: React.FC<AsicDashboardProps> = ({ miner, onClose, onToggle,
                     <div className={`space-y-4 ${!isPremium ? 'opacity-50 pointer-events-none' : ''}`}>
                        <div className="space-y-2">
                           <label className="text-sm font-bold text-slate-400">Mining Pool URL</label>
-                          <input type="text" value="stratum+tcp://pool.blockdag.network:3333" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white font-mono text-sm" readOnly />
+                          <input id="miningPoolUrl" name="miningPoolUrl" type="text" value="stratum+tcp://pool.blockdag.network:3333" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white font-mono text-sm" readOnly />
                        </div>
                        
                        <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                              <label className="text-sm font-bold text-slate-400">Fan Speed target (%)</label>
-                             <input type="number" value="60" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white font-mono text-sm" />
+                             <input id="fanSpeed" name="fanSpeed" type="number" value="60" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white font-mono text-sm" />
                           </div>
                           <div className="space-y-2">
                              <label className="text-sm font-bold text-slate-400">Max Temp (°C)</label>
-                             <input type="number" value="85" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white font-mono text-sm" />
+                             <input id="maxTemp" name="maxTemp" type="number" value="85" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white font-mono text-sm" />
                           </div>
                        </div>
 

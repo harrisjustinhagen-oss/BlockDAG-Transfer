@@ -145,4 +145,104 @@ export async function registerRoutes(app: FastifyInstance) {
     const record = await prisma.equippedSet.findFirst({ where: { userId: user.id } });
     return reply.code(200).send(record || { sets: [] });
   });
+
+  // Fitbit OAuth token exchange (secure backend endpoint)
+  app.post('/fitbit/token', async (req, reply) => {
+    const bodySchema = z.object({
+      code: z.string(),
+      redirect_uri: z.string()
+    });
+    
+    try {
+      const { code, redirect_uri } = bodySchema.parse(req.body);
+      
+      const clientId = process.env.VITE_FITBIT_CLIENT_ID;
+      const clientSecret = process.env.VITE_FITBIT_CLIENT_SECRET;
+      
+      if (!clientId || !clientSecret) {
+        app.log.error('Fitbit credentials not configured in server environment');
+        return reply.code(500).send({ error: 'Server not configured for Fitbit' });
+      }
+      
+      // Fitbit requires Basic Authentication with base64(clientId:clientSecret)
+      const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+      
+      // Exchange authorization code for access token (secure on backend)
+      const response = await fetch('https://api.fitbit.com/oauth2/token', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${credentials}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          code,
+          grant_type: 'authorization_code',
+          redirect_uri
+        }).toString()
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        app.log.error(`Fitbit token exchange failed: ${response.status} ${error}`);
+        return reply.code(401).send({ error: 'Failed to exchange code for token' });
+      }
+      
+      const tokenData = await response.json();
+      
+      app.log.info('✓ Fitbit token exchange successful');
+      return reply.code(200).send(tokenData);
+    } catch (error) {
+      app.log.error('Fitbit token endpoint error:', error);
+      return reply.code(400).send({ error: 'Invalid request' });
+    }
+  });
+
+  // Fitbit token refresh (secure backend endpoint)
+  app.post('/fitbit/refresh', async (req, reply) => {
+    const bodySchema = z.object({
+      refresh_token: z.string()
+    });
+    
+    try {
+      const { refresh_token } = bodySchema.parse(req.body);
+      
+      const clientId = process.env.VITE_FITBIT_CLIENT_ID;
+      const clientSecret = process.env.VITE_FITBIT_CLIENT_SECRET;
+      
+      if (!clientId || !clientSecret) {
+        app.log.error('Fitbit credentials not configured in server environment');
+        return reply.code(500).send({ error: 'Server not configured for Fitbit' });
+      }
+      
+      // Fitbit requires Basic Authentication with base64(clientId:clientSecret)
+      const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+      
+      // Refresh access token (secure on backend)
+      const response = await fetch('https://api.fitbit.com/oauth2/token', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${credentials}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token
+        }).toString()
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        app.log.error(`Fitbit token refresh failed: ${response.status} ${error}`);
+        return reply.code(401).send({ error: 'Failed to refresh token' });
+      }
+      
+      const tokenData = await response.json();
+      
+      app.log.info('✓ Fitbit token refresh successful');
+      return reply.code(200).send(tokenData);
+    } catch (error) {
+      app.log.error('Fitbit refresh endpoint error:', error);
+      return reply.code(400).send({ error: 'Invalid request' });
+    }
+  });
 }

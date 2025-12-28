@@ -1,7 +1,7 @@
 
 import React from 'react';
 
-export type ActiveView = 'wallet' | 'apps' | 'games' | 'profile' | 'sponsors' | 'inventory' | 'quests' | 'marketplace';
+export type ActiveView = 'wallet' | 'apps' | 'games' | 'profile' | 'sponsors' | 'inventory' | 'quests' | 'marketplace' | 'friends';
 
 export interface Reward {
   type: 'resource';
