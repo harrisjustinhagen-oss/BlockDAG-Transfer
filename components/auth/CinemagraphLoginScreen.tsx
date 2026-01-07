@@ -290,16 +290,19 @@ const CinemagraphLoginScreen: React.FC<CinemagraphLoginProps> = ({ onLoginSucces
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex flex-col bg-gradient-to-b from-slate-900 to-black">
+    <div className="min-h-screen relative overflow-hidden flex flex-col bg-black">
       {console.log('CinemagraphLoginScreen rendering, showKYC:', showKYC, 'isLogin:', isLogin, 'requiresPinVerification:', requiresPinVerification)}
       {console.log('Component state:', { showKYC, isLogin, requiresPinVerification, email, error: error.substring(0, 50) })}
       
-      {/* Background - simplified */}
-      <div className="absolute inset-0 z-0 opacity-30" style={{
+      {/* Background - Astronaut Visor */}
+      <div className="absolute inset-0 z-0 opacity-60" style={{
         backgroundImage: 'url("/assets/astronaut-visor.jpg")',
         backgroundSize: 'cover',
         backgroundPosition: 'center'
       }} />
+      
+      {/* Dark overlay for better text visibility */}
+      <div className="absolute inset-0 z-1 bg-black/40" />
 
       {/* KYC Modal - rendered separately at full screen */}
       {showKYC && (
