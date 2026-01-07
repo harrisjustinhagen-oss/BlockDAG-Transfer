@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; connect-src 'self' http://localhost:* https://* wss://*; img-src 'self' data: https:; font-src 'self' data: https:;">
+    <title>Web3 Dashboard UI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root {
+        --bg-main: #020617; /* slate-950 */
+        --bg-main-translucent: rgba(15, 23, 42, 0.75); /* slate-900/75 */
+        --bg-panel: rgba(30, 41, 59, 0.5); /* slate-800/50 */
+        --bg-panel-solid: #1f2937; /* slate-800 */
+        --bg-header: rgba(15, 23, 42, 0.8); /* slate-900/80 */
+        --bg-footer: rgba(30, 41, 59, 0.8); /* slate-800/80 */
+        --bg-interactive: #334155; /* slate-700 */
+        --bg-interactive-hover: #475569; /* slate-600 */
+        --bg-disabled: #475569; /* slate-600 */
+        --bg-input: #334155; /* slate-700 */
+        
+        --text-primary: #f8fafc; /* slate-50 */
+        --text-secondary: #94a3b8; /* slate-400 */
+        --text-disabled: #64748b; /* slate-500 */
+        --text-heading: #e2e8f0; /* slate-200 */
+        
+        --border-color: #374151; /* slate-700 */
+        --border-color-translucent: rgba(55, 65, 81, 0.5); /* slate-700/50 */
+        --border-interactive: #4b5563; /* slate-600 */
+      }
+      
+      body {
+        background-color: var(--bg-main);
+      }
+
+      /* Smooth transitions for all themeable properties */
+      * {
+        transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out, border-color 0.3s ease-in-out, fill 0.3s ease-in-out, stroke 0.3s ease-in-out;
+      }
+      
+      #bg-video {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        min-width: 100%;
+        min-height: 100%;
+        width: auto;
+        height: auto;
+        z-index: -100;
+        -o-object-fit: cover;
+           object-fit: cover;
+        filter: brightness(0.6);
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fadeIn {
+        animation: fadeIn 0.5s ease-in-out;
+      }
+      @keyframes item-change-pulse {
+        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); } /* green-400 */
+        50% { transform: scale(1.05); box-shadow: 0 0 10px 2px rgba(74, 222, 128, 0.4); }
+        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+      }
+      .animate-item-change {
+        animation: item-change-pulse 0.5s ease-out;
+      }
+
+      @keyframes xp-gain {
+        0% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-25px); }
+      }
+      .animate-xp-gain {
+        animation: xp-gain 1.5s ease-out forwards;
+      }
+
+      @keyframes xp-bar-gain {
+        0% { opacity: 1; transform: translateY(0) scale(0.8); }
+        100% { opacity: 0; transform: translateY(-40px) scale(1.2); }
+      }
+      .animate-xp-bar-gain {
+        animation: xp-bar-gain 1.5s ease-out forwards;
+      }
+
+      /* --- 3D City Builder Styles --- */
+      .city-map-container {
+        perspective: 2000px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+        background: var(--bg-panel-solid);
+        border-radius: 1rem;
+        border: 1px solid var(--border-color);
+      }
+
+      .city-map-grid {
+        transform-style: preserve-3d;
+        outline: 1px solid transparent; /* Fix for animation jitter in Chrome */
+        transition: transform 0.5s ease-out;
+      }
+
+      .tile-wrapper {
+        --tile-size: 2vw;
+        --tile-max-size: 32px;
+        width: var(--tile-size, 32px);
+        height: var(--tile-size, 32px);
+        max-width: var(--tile-max-size);
+        max-height: var(--tile-max-size);
+        position: relative;
+        float: left; /* Use float for grid layout in 3D space */
+        cursor: pointer;
+      }
+
+      .tile-cube {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        transform-style: preserve-3d;
+        transform: translateZ(calc(var(--tile-height) * -0.5));
+      }
+
+      .face {
+        position: absolute;
+        background-size: cover;
+        image-rendering: pixelated; /* Keeps textures sharp */
+        transition: all 0.3s ease;
+      }
+      
+      .face.top {
+        width: 100%;
+        height: 100%;
+        transform: rotateX(90deg) translateZ(calc(var(--tile-height) * 0.5));
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+      }
+      
+      .tile-wrapper:hover .face.top {
+        filter: brightness(1.3);
+      }
+
+      .tile-wrapper.selected .face.top {
+        box-shadow: inset 0 0 20px 5px rgba(59, 130, 246, 0.7); /* blue-500 glow */
+        filter: brightness(1.5);
+      }
+
+      .face.front {
+        width: 100%;
+        height: var(--tile-height);
+        transform: translateZ(calc(var(--tile-size, 32px) * 0.5));
+        bottom: calc(50% - var(--tile-height) * 0.5);
+      }
+
+      .face.right {
+        height: var(--tile-height);
+        width: var(--tile-height);
+        transform: rotateY(90deg) translateZ(calc(var(--tile-size, 32px) * 0.5));
+        left: calc(50% - var(--tile-height) * 0.5);
+        bottom: calc(50% - var(--tile-height) * 0.5);
+      }
+
+      /* Textures */
+      .texture-grass { background-image: url('/BlockDAG-Transfer/assets/grass.svg'); filter: brightness(1.1); }
+      .texture-water { background-image: url('/BlockDAG-Transfer/assets/water.svg'); background-repeat: repeat; animation: water-flow 10s linear infinite; }
+      .texture-forest { background-image: url('/BlockDAG-Transfer/assets/forest.svg'); filter: brightness(0.9); }
+      .texture-mountain { background-image: url('/BlockDAG-Transfer/assets/rock.svg'); }
+      .texture-dirt { background-image: url('/BlockDAG-Transfer/assets/dirt.svg'); filter: brightness(0.8); }
+      .texture-desert { background-image: url('/BlockDAG-Transfer/assets/dirt.svg'); filter: brightness(1.5) sepia(0.3); }
+
+      @keyframes water-flow {
+        from { background-position: 0 0; }
+        to { background-position: 128px 64px; }
+      }
+
+      /* Map Controls */
+      .map-controls {
+        position: absolute;
+        bottom: 1rem;
+        right: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        z-index: 10;
+      }
+
+      .map-controls button {
+        background-color: rgba(30, 41, 59, 0.8);
+        color: white;
+        border: 1px solid #4b5563;
+        border-radius: 9999px;
+        width: 2.5rem;
+        height: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.25rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        backdrop-filter: blur(4px);
+      }
+      .map-controls button:hover {
+        background-color: rgba(55, 65, 81, 0.8);
+      }
+
+
+      /* Build Modal */
+      .build-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background-color: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+        backdrop-filter: blur(4px);
+      }
+
+      .build-modal-content {
+        background-color: var(--bg-panel-solid); /* slate-800 */
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        text-align: center;
+        width: 90%;
+        max-width: 24rem;
+      }
+
+      /* Raffle Modal */
+      .raffle-wheel {
+          position: relative;
+          width: 250px;
+          height: 250px;
+          border-radius: 50%;
+          border: 8px solid var(--border-color);
+          background-image: conic-gradient(
+              #ef4444 0deg 60deg,    /* red-500 */
+              #3b82f6 60deg 120deg,   /* blue-500 */
+              #22c55e 120deg 180deg, /* green-500 */
+              #8b5cf6 180deg 240deg, /* violet-500 */
+              #ec4899 240deg 300deg, /* pink-500 */
+              #64748b 300deg 360deg  /* slate-500 */
+          );
+          transition: transform 5s cubic-bezier(0.25, 1, 0.5, 1);
+          overflow: hidden;
+      }
+      .raffle-pointer {
+          position: absolute;
+          top: -10px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 15px solid transparent;
+          border-right: 15px solid transparent;
+          border-top: 30px solid #fde047; /* yellow-300 */
+          z-index: 10;
+          filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+      }
+      .prize-label {
+          position: absolute;
+          width: 50%;
+          height: 50%;
+          top: 25%;
+          left: 50%;
+          transform-origin: 0% 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          font-size: 0.75rem;
+          color: white;
+          text-shadow: 1px 1px 2px black;
+          pointer-events: none;
+      }
+      
+      /* --- Hearts Game --- */
+      @keyframes collect-trick-bottom {
+        to { transform: translateY(30vh) scale(0.1); opacity: 0; }
+      }
+      @keyframes collect-trick-left {
+        to { transform: translateX(-45vw) scale(0.1); opacity: 0; }
+      }
+      @keyframes collect-trick-top {
+        to { transform: translateY(-30vh) scale(0.1); opacity: 0; }
+      }
+      @keyframes collect-trick-right {
+        to { transform: translateX(45vw) scale(0.1); opacity: 0; }
+      }
+      .animate-collect-bottom { animation: collect-trick-bottom 0.7s ease-in forwards; }
+      .animate-collect-left { animation: collect-trick-left 0.7s ease-in forwards; }
+      .animate-collect-top { animation: collect-trick-top 0.7s ease-in forwards; }
+      .animate-collect-right { animation: collect-trick-right 0.7s ease-in forwards; }
+
+      @keyframes glow {
+        0%, 100% { box-shadow: 0 0 5px rgba(253, 224, 71, 0); } /* yellow-300 */
+        50% { box-shadow: 0 0 20px 5px rgba(253, 224, 71, 0.7); }
+      }
+      .animate-glow {
+        animation: glow 2s ease-in-out infinite;
+      }
+
+    </style>
+
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://esm.sh/lucide-react@0.292.0?external=react,react-dom"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/BlockDAG-Transfer/assets/index-aej_yUXg.js"></script>
+  <link rel="modulepreload" crossorigin href="/BlockDAG-Transfer/assets/three-DxcQGzY8.js">
+  <link rel="modulepreload" crossorigin href="/BlockDAG-Transfer/assets/games-5oCbjJpc.js">
+  <link rel="modulepreload" crossorigin href="/BlockDAG-Transfer/assets/mining-zG9pqm4v.js">
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
