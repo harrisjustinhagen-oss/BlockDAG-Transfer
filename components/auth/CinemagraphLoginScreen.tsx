@@ -457,6 +457,15 @@ const CinemagraphLoginScreen: React.FC<CinemagraphLoginProps> = ({ onLoginSucces
                     Sign Up
                   </button>
                 </div>
+
+                {/* Admin Button */}
+                <button
+                  type="button"
+                  onClick={() => onLoginSuccess('admin-user-123', 'Admin')}
+                  className="w-full py-1.5 mt-3 rounded text-xs font-semibold transition-all bg-gradient-to-r from-orange-600 to-red-600 text-white hover:from-orange-500 hover:to-red-500 shadow-lg shadow-orange-600/30"
+                >
+                  Admin Access
+                </button>
               </form>
               )}
 
